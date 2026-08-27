@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc 
+llm_train/
+*.env
+.streamlit
+*.toml
