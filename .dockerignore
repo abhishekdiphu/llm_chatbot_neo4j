@@ -1,0 +1,12 @@
+*__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.env
+.venv/
+venv/
+env/
+.git/
+*.log
+.DS_Store
+./llm_train
