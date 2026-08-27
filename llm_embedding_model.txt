@@ -1,0 +1,9 @@
+llama-server \                                
+  -m ~/.cache/huggingface/hub/models--unsloth--embeddinggemma-300m-GGUF/snapshots/*/embeddinggemma-300M-BF16.gguf \
+  --embedding \
+  --pooling mean \
+  -c 2048 \
+  -b 2048 \
+  -ub 2048 \
+  -np 1 \
+  --port 8081
