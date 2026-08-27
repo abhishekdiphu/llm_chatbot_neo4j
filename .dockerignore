@@ -5,8 +5,7 @@
 *.env
 .venv/
 venv/
-env/
-.git/
+*.env
 *.log
 .DS_Store
 ./llm_train
