@@ -4,3 +4,4 @@ llm_train/
 *.env
 .streamlit/
 *.toml
+.vscode/

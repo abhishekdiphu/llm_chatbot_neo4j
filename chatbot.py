@@ -2,16 +2,31 @@ import streamlit as st
 from utils import write_message
 from agent import Agent 
 import os
+import asyncio
 
 os.environ["LANGSMITH_TRACING"] = "false"
 
+@st.cache_resource
+def get_agent():
+    # Create a persistent event loop
+    loop = asyncio.new_event_loop()
 
+    # Make it the current loop for this thread
+    asyncio.set_event_loop(loop)
+    agent = Agent()
+
+    loop.run_until_complete(
+        agent.initialize()
+    )
+
+
+    return agent, loop
 
 
 class Chatbot:
     def __init__(self):
-        self.agent = Agent()
-        self.generate_response = self.agent.generate_response
+        self.agent, self.loop = get_agent()
+        #self.generate_response = self.agent.generate_response
 
     # Submit handler
     def handle_submit(self, message):
@@ -25,11 +40,18 @@ class Chatbot:
         # Handle the response
         with st.spinner('Thinking...'):
             # Call the agent
-            response = self.generate_response(message)
-            write_message('assistant', response)
-            
+             # Streamlit may execute this on a ScriptRunner thread.
+            # Make our persistent loop available in this thread.
+            asyncio.set_event_loop(self.loop)
+            try:
+                response =  self.agent.generate_response(message)
+                
+            except Exception as e:
+                response = f"Error: {str(e)}" 
 
-    
+            write_message('assistant', response)
+             
+            
 
 
 if __name__ == "__main__":

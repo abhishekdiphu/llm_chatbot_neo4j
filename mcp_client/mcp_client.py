@@ -51,12 +51,23 @@ class MCPClient:
         Your LangChain Agent is synchronous, so it calls this normal method.
         Internally, this method runs the async MCP call.
         """
-        return asyncio.run(
-            self._call_tool_async(
-                tool_name=tool_name,
-                arguments=arguments,
+        try:
+            existing_loop = asyncio.get_event_loop()
+        except RuntimeError:
+            existing_loop = None
+
+        try:
+            return asyncio.run(
+                self._call_tool_async(
+                    tool_name=tool_name,
+                    arguments=arguments,
+                )
             )
-        )
+        finally:
+            if existing_loop is not None and not existing_loop.is_closed():
+                asyncio.set_event_loop(existing_loop)
+
+
 
     def vector_search(self, question: str) -> str:
         """
@@ -139,9 +150,18 @@ class MCPClient:
         """
         Synchronous wrapper for reading an MCP resource.
         """
-        return asyncio.run(
-            self._read_resource_async(uri)
-        )
+        try:
+            existing_loop = asyncio.get_event_loop()
+        except RuntimeError:
+            existing_loop = None
+
+        try:
+            return asyncio.run(
+                self._read_resource_async(uri)
+            )
+        finally:
+            if existing_loop is not None and not existing_loop.is_closed():
+                asyncio.set_event_loop(existing_loop)
 
     def get_neo4j_schema(self, _: str = "") -> str:
         """
