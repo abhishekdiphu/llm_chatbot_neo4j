@@ -6,7 +6,28 @@ from graph import graph
 from langchain_neo4j import GraphCypherQAChain
 from langchain.prompts.prompt import PromptTemplate
 
+"""
+                   User question
+                         │
+                         ▼
+                       Agent
+                    /           \
+                   /             \
+                  ▼               ▼
 
+        Vector Search          Cypher Search
+
+     semantic meaning       structured facts
+            │                    │
+            ▼                    ▼
+      embeddings             LLM → Cypher
+            │                    │
+            ▼                    ▼
+ vector index lookup         Neo4j query
+            │                    │
+            ▼                    ▼
+     similar chunks          exact rows
+"""
 
 
 class CypherTool():

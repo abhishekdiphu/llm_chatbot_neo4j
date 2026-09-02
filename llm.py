@@ -4,20 +4,25 @@ import streamlit as st
 from langchain_openai import ChatOpenAI
 from langchain_openai import OpenAIEmbeddings
 
-custom_llm = False
+custom_llm = True
+
+openai_api_key = st.secrets['OPENAI_API_KEY']
+openai_model = st.secrets['OPENAI_MODEL']
+llm = ChatOpenAI(
+openai_api_key=st.secrets["OPENAI_API_KEY"],
+model=st.secrets["OPENAI_MODEL"]
+)
+
 if custom_llm:
-    from test_scripts.custom_llm import llm
-    llm = llm 
-
-
+    from custom_llms.custom_llm import cus_llm
+    cus_llm = cus_llm 
 else:
-    openai_api_key = st.secrets['OPENAI_API_KEY']
-    openai_model = st.secrets['OPENAI_MODEL']
+    cus_llm = llm
 
-    llm = ChatOpenAI(
-    openai_api_key=st.secrets["OPENAI_API_KEY"],
-    model=st.secrets["OPENAI_MODEL"]
-    )
+
+
+
+
 
 embeddings = OpenAIEmbeddings(
     model=st.secrets.get("EMBEDDING_MODEL_NAME", "embeddinggemma-300m-GGUF:BF16"),

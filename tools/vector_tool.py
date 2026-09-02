@@ -8,6 +8,15 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.chains import create_retrieval_chain
 
+
+#The vector database part answers:
+#$$ \boxed{\text{"Which text is semantically similar?"}} $$
+
+#while the knowledge graph part answers:
+
+#"What is this text connected to?"
+
+
 class VectorTool(): 
     def __init__(self, graph=graph, embeddings=embeddings):
         

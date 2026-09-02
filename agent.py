@@ -1,6 +1,6 @@
 from openai import chat
 
-from llm import llm , embeddings
+from llm import llm , embeddings, cus_llm
 from graph import graph
 
 from langchain_core.prompts import ChatPromptTemplate
@@ -57,12 +57,48 @@ from tools.long_term_memory_tool import UserPreferencesTool, SavePreferenceTool
 │      └────────────┴──────────────┘                  │
 │            Reasoning Traces                         │
 └─────────────────────────────────────────────────────┘
+
+
+User
+ │
+ │ "papers about graph sparsity"
+ ▼
+Embedding model
+ │
+ ▼
+query embedding
+ │
+ ▼
+chunk_embedding_index
+ │
+ │ vector similarity
+ ▼
+(:Chunk)
+ │
+ │ graph traversal
+ ▼
+(:Paper) ──► (:Author)
+ │
+ └────────► (:Category)
+ │
+ ▼
+PAPER_RETRIEVAL_QUERY
+ │
+ ▼
+Rich retrieval result
+ │
+ ▼
+LLM
+ │
+ ▼
+Answer
+
 """
 
 
 
 class Agent():
-    def __init__(self, llm=llm, graph=graph, embeddings=embeddings, user_id="abhishek"):    
+    def __init__(self, llm=llm, cus_llm=cus_llm, graph=graph, embeddings=embeddings, user_id="abhishek"):    
         self.user_id = user_id
         self.session_id = f"user-{self.user_id}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
         self.graph = graph
@@ -136,8 +172,7 @@ class Agent():
 
 
 
-        # Create a movie chat chain
-
+       
 
         self.chat_prompt = ChatPromptTemplate.from_messages(
             [
@@ -145,7 +180,7 @@ class Agent():
                 ("human", "{input}"),
             ])
 
-        self.arvix_chat = self.chat_prompt | llm | StrOutputParser()
+        self.arvix_chat = self.chat_prompt | cus_llm | StrOutputParser()
 
          # -------------------------
         # Memory tools
@@ -215,7 +250,7 @@ class Agent():
         # Create the agent
         self.agent_prompt =  self.agent_prompt_local#hub.pull("hwchase17/react-chat")
 
-        self.agent = create_react_agent(llm, self.tools, self.agent_prompt)
+        self.agent = create_react_agent(cus_llm, self.tools, self.agent_prompt)
 
         # Usage
         
