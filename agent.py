@@ -29,7 +29,7 @@ from datetime import datetime
 from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferMemory, ConversationBufferWindowMemory
 
-from tools.long_term_memory_tool import UserPreferencesTool, SavePreferenceTool
+from tools.long_memory import UserPreferencesTool, SavePreferenceTool
 
 
 """
@@ -150,13 +150,14 @@ class Agent():
         Action: the action to take, should be one of [{tool_names}]
         Action Input: the input to the action
         Observation: the result of the action
+         ... (this Thought/Action/Action Input/Observation can repeat N times)
         ```
 
         When you have a response to say to the Human, or if you do not need to use a tool, you MUST use the format:
 
         ```
         Thought: Do I need to use a tool? No
-        Final Answer: [your response here]
+        Final Answer: the final answer to the original input question
         ```
 
         Begin!
@@ -164,10 +165,13 @@ class Agent():
         Previous conversation history:
         {chat_history}
 
-        New input: {input}
-        {agent_scratchpad}
+        Question: {input}
+        Thought:{agent_scratchpad}
         """)
-
+        #New input: {input}
+        #{agent_scratchpad}
+                
+        
 
 
 
@@ -180,9 +184,9 @@ class Agent():
                 ("human", "{input}"),
             ])
 
-        self.arvix_chat = self.chat_prompt | cus_llm | StrOutputParser()
+        #self.arvix_chat = self.chat_prompt | cus_llm | StrOutputParser()
 
-         # -------------------------
+        # -------------------------
         # Memory tools
         # -------------------------
         self.user_preferences_tool = UserPreferencesTool(
@@ -250,6 +254,52 @@ class Agent():
         # Create the agent
         self.agent_prompt =  self.agent_prompt_local#hub.pull("hwchase17/react-chat")
 
+
+        """
+        agent start ---->
+
+        1. Step 1: LLM Decision-Making Process
+
+        a. The LLM suggests the ‘Action’ and ‘Action Input’ during the decision-making process.
+
+        
+        
+        
+        Step 2: Agent Response
+
+        a. The agent then responds by launching the recommended tool (Action).
+
+        b. The agent supplies the input parameters (Action Input) to the function.
+
+
+        
+        
+        Step 3: Observation
+
+        a. The function’s output (tool) is presented as an ‘Observation’ by the agent to the LLM.
+
+        
+        
+        Step 4: LLM Feedback Loop
+
+        a. Subsequently, the LLM provides a ‘Thought’.
+
+        b. The LLM suggests the next series of ‘Action’ & ‘Action Input’ for the agent.
+
+        
+
+
+        Step 5: Repetition
+
+        a. This entire procedure repeats in a cycle until the LLM provides a ‘Final Answer’ response.
+
+        Step 6: Communication to User
+
+        a. The final response is communicated to the user.
+
+
+
+        """
         self.agent = create_react_agent(cus_llm, self.tools, self.agent_prompt)
 
         # Usage

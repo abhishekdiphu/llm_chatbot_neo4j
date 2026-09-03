@@ -25,8 +25,11 @@ def get_agent():
 
 class Chatbot:
     def __init__(self):
-        self.agent, self.loop = get_agent()
-        #self.generate_response = self.agent.generate_response
+        try:
+            self.agent, self.loop = get_agent()
+            #self.generate_response = self.agent.generate_response
+        except Exception as e:
+            self.error_msg = "Error initializing the agent"
 
     # Submit handler
     def handle_submit(self, message):
@@ -47,7 +50,7 @@ class Chatbot:
                 response =  self.agent.generate_response(message)
                 
             except Exception as e:
-                response = f"Error: {str(e)}" 
+                response = f"Error: {str(self.error_msg)}" 
 
             write_message('assistant', response)
              
