@@ -9,20 +9,14 @@ from transformers import MetalConfig
 
 
 
-
 llamma = "meta-llama/Llama-3.2-1B-Instruct"
 llamma_adpt = "../llm_train/outputs/02/Llama-3.2-1B-Instruct-lora-adapter"
-
 qwen= "Qwen/Qwen3-4B"
 qwen_adpt = "./llm_train/outputs/03/qwen3-4b-react-adapter"
 
+
 class LocalLLAMA:
-    def __init__(
-        self,
-        base_model=None,
-        adapter_path= None,
-        max_new_tokens=128,
-    ):
+    def __init__(self, base_model=None, adapter_path= None, max_new_tokens=128):
         self.base_model = base_model
         self.adapter_path = adapter_path
         self.max_new_tokens = max_new_tokens
@@ -92,14 +86,15 @@ class LocalLLAMA:
 
 
 
-local_llama = LocalLLAMA(
-    base_model=qwen,
-    adapter_path=qwen_adpt).load()
-
+local_llama = LocalLLAMA(base_model=qwen, adapter_path=qwen_adpt).load()
 print("loading completed for local llm")
 
-def local_llm_invoke(prompt_value, model=local_llama, **kwargs ):
 
+
+
+
+
+def local_llm_invoke(prompt_value, model=local_llama, **kwargs ):
     if hasattr(prompt_value, "to_string"):
         prompt = prompt_value.to_string()
     else:
@@ -114,7 +109,6 @@ def local_llm_invoke(prompt_value, model=local_llama, **kwargs ):
 
 
 cus_llm = RunnableLambda(local_llm_invoke)
-
 if __name__ == "__main__":
     print("starting local llm test")
     print(local_llama.invoke("where is the paper of pytorch published?" ))

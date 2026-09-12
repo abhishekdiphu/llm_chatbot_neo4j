@@ -4,7 +4,7 @@ import streamlit as st
 from langchain_openai import ChatOpenAI
 from langchain_openai import OpenAIEmbeddings
 
-custom_llm = True
+custom_llm = False
 
 openai_api_key = st.secrets['OPENAI_API_KEY']
 openai_model = st.secrets['OPENAI_MODEL']

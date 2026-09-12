@@ -5,31 +5,26 @@ from graph import graph
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain.schema import StrOutputParser
-#from langchain_neo4j import Neo4jChatMessageHistory
+
 from langchain.tools import Tool
 
 from langchain.agents import AgentExecutor, create_react_agent
-from langchain_core.runnables.history import RunnableWithMessageHistory
+
 from langchain import hub
 from langchain_core.prompts import PromptTemplate
-from memory.reasoning_trace import ReasoningTraceCallback
-from utils import get_session_id
+
+from utils import ExtractedPreference, get_session_id
 from mcp_client.mcp_client import MCPClient
 
-
-from neo4j_agent_memory.integrations.langchain import (
-    llm_provider_from_langchain,
-)
-from neo4j_agent_memory import MemoryClient, MemorySettings,ExtractionConfig
-from neo4j_agent_memory.config import Neo4jConfig
 import os
-from memory.message_history import Neo4jChatMessageHistory, AsyncNeo4jChatMessageHistory
-import asyncio
+from memory.message_history import Neo4jChatMessageHistory
+
 from datetime import datetime
-from langchain.chains import ConversationChain
-from langchain.memory import ConversationBufferMemory, ConversationBufferWindowMemory
+
+from langchain.memory import ConversationBufferWindowMemory
 
 from tools.long_memory import UserPreferencesTool, SavePreferenceTool
+from utils import ExtractedPreferences
 
 
 """
@@ -98,33 +93,14 @@ Answer
 
 
 class Agent():
-    def __init__(self, llm=llm, cus_llm=cus_llm, graph=graph, embeddings=embeddings, user_id="abhishek"):    
+    def __init__(self, llm=None, cus_llm=llm, graph=graph, embeddings=embeddings, user_id="abhishek"):    
         self.user_id = user_id
         self.session_id = f"user-{self.user_id}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
         self.graph = graph
         self.embeddings = embeddings
         self.mcp_client = MCPClient()
         # Convert it to an LLMProvider for the memory client.
-        self.provider = llm_provider_from_langchain(llm)
-        self.mem_settings = MemorySettings(neo4j=Neo4jConfig(
-                                            uri=os.environ["NEO4J_URI"],
-                                            username=os.environ["NEO4J_USERNAME"],
-                                            password=os.environ["NEO4J_PASSWORD"],
-                                            database=os.environ["NEO4J_DATABASE"],
-                                            ),
-                                            extraction=ExtractionConfig(enable_spacy=False,
-                                                                         enable_gliner=False),
-                                            llm=self.provider,
-                                            embedding="openai/text-embedding-3-small",
-                                            )
-
-        self.memory_client = MemoryClient(self.mem_settings)
-
-
-
-
-        
-
+       
 
         
         self.agent_prompt_local = PromptTemplate.from_template("""
@@ -184,23 +160,17 @@ class Agent():
                 ("human", "{input}"),
             ])
 
-        #self.arvix_chat = self.chat_prompt | cus_llm | StrOutputParser()
+        
 
         # -------------------------
-        # Memory tools
+        # longMemory tools
         # -------------------------
-        self.user_preferences_tool = UserPreferencesTool(
-            memory_client=self.memory_client,
-            user_id=self.user_id,
-        )
+        self.user_preferences_tool = UserPreferencesTool( mcp_client=self.mcp_client, user_id=self.user_id)
 
-        self.save_preference_tool = SavePreferenceTool(
-            memory_client=self.memory_client,
-            user_id=self.user_id,
-        )
-        # Create a set of tools
+        self.save_preference_tool = SavePreferenceTool( mcp_client=self.mcp_client, user_id=self.user_id,)
 
 
+        #-------------------------
         
         # LangChain tools.
         # These tools call MCP client methods, not VectorTool/CypherTool directly.
@@ -223,14 +193,7 @@ class Agent():
                 ),
                 func=self.mcp_client.cypher_search,
             ),
-            Tool.from_function(
-                name="general_paper_chat",
-                description=(
-                    "Use this For general chat on scientific papers not covered by other tools "
-                ),
-                func=self.mcp_client.general_paper_chat,
-            ),
-
+       
             Tool.from_function(
                 name="schema_of_databse_lookup",
                 description=(
@@ -245,8 +208,7 @@ class Agent():
                 ),
                 func=self.mcp_client.graph_statistics,
             ),
-            self.user_preferences_tool,
-            self.save_preference_tool,
+         
     ]
 
 
@@ -353,14 +315,14 @@ class Agent():
 
 
     async def initialize(self):
-        await self.memory_client.connect()
+       
 
         # Create message history
-        self.message_history = AsyncNeo4jChatMessageHistory(
-            memory_client=self.memory_client,
-            session_id=self.session_id,
-            user_id=self.user_id,
-        )
+        self.message_history = Neo4jChatMessageHistory(
+        mcp_client=self.mcp_client,
+        session_id=self.session_id,
+        user_id=self.user_id,
+    )
 
         # Create memory
         self.memory = ConversationBufferWindowMemory(
@@ -370,9 +332,7 @@ class Agent():
             return_messages=True,
         )
 
-        #self.callback = ReasoningTraceCallback(self.memory_client, self.user_id, self.session_id)
         
-
         self.agent_executor = AgentExecutor(
             agent=self.agent,
             tools=self.tools,
@@ -383,5 +343,38 @@ class Agent():
             )
 
     async def close(self):
-        await self.memory_client.close()
+        pass
+
+    def finalize_discussion(self) -> dict:
+        records = self.mcp_client.get_chat_history( session_id=self.session_id)
+
+        if not records:return {"saved_count": 0, "preferences": [],}
+
+        conversation = "\n".join(
+            f"{record.get('role', 'unknown')}: "
+            f"{record.get('content', '')}"
+            for record in records
+        )
+
+
+                # Temporary replacement for LLM-based extraction.
+        extracted = ExtractedPreferences(
+            preferences=[
+                        ExtractedPreference(
+                            category="subject",
+                            preference=(
+                                "The user prefers papers about "
+                                "knowledge graphs."),),
+                        ExtractedPreference(
+                            category="format",
+                            preference=(
+                                "The user prefers concise explanations."),),
+                        ])
+
+        saved = []
+        for item in extracted.preferences:
+            result = self.save_preference_tool.invoke({"preference": item.preference, "category": item.category})
+            saved.append({"category": item.category, "preference": item.preference, "result": result,})
+            
+        return {"saved_count": len(saved),"preferences": saved,}
 

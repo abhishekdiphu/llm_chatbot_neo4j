@@ -6,34 +6,7 @@ from langchain.tools import BaseTool
 from langchain.memory import ConversationBufferMemory
 from pydantic import BaseModel, Field
 from neo4j_agent_memory import MemoryClient, MemorySettings
-
-
-
-class UserPreferencesTool(BaseTool):
-    name: str = "get_user_preferences"
-    description: str = """
-    Get stored preferences for the current user.
-    Returns domain preferences, author, paper preferences.
-    """
-    memory_client: MemoryClient
-    user_id: str
-
-    def _run(self) -> str:
-        import asyncio
-
-        prefs = asyncio.get_event_loop().run_until_complete(
-            self.memory_client.long_term.get_preferences(
-                user_id=self.user_id,
-            )
-        )
-
-        by_category = {}
-        for p in prefs:
-            if p.category not in by_category:
-                by_category[p.category] = []
-            by_category[p.category].append(p.preference)
-
-        return json.dumps(by_category)
+from mcp_client.mcp_client import MCPClient
 
 
 class SavePreferenceInput(BaseModel):
@@ -41,25 +14,38 @@ class SavePreferenceInput(BaseModel):
     category: str = Field(description="Category: category, domain, subject,author etc.")
 
 
+
+class UserPreferencesTool(BaseTool):
+    name: str = "get_user_preferences"
+
+    description: str = """
+    Get long-term preferences stored for the current user.
+
+    Use this before making personalized paper recommendations
+    or when the user refers to their existing preferences.
+    """
+
+    mcp_client: MCPClient
+    user_id: str
+
+    def _run(self) -> str:
+        return self.mcp_client.get_user_preferences(user_id=self.user_id)
+
+
+
+
+
 class SavePreferenceTool(BaseTool):
     name: str = "save_user_preference"
     description: str = """
-    Save a new user preference learned during the conversation.
-    Use when customer expresses a like, dislike, or preference.
+    Save a long-term user preference.
+    Use this when the user explicitly says they like,
+    dislike, prefer, avoid, or are interested in something.
+    Do not use it for temporary questions or assumptions.
     """
     args_schema: type[BaseModel] = SavePreferenceInput
-    memory_client: MemoryClient
+    mcp_client: MCPClient
     user_id: str
 
     def _run(self, preference: str, category: str) -> str:
-        import asyncio
-
-        asyncio.get_event_loop().run_until_complete(
-            self.memory_client.long_term.add_preference(
-                preference=preference,
-                category=category,
-                confidence=0.85,
-            )
-        )
-
-        return f"Saved preference: {category} - {preference}"
+        return self.mcp_client.save_user_preference( user_id=self.user_id, preference=preference, category=category)

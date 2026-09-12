@@ -9,5 +9,7 @@ try:
         password=st.secrets["NEO4J_PASSWORD"],
         database=st.secrets["NEO4J_DATABASE"],
     )
-except Exception as e:
-    st.error(f"Error connecting to Neo4j: {str(e)}")
+except Exception as error:
+    raise RuntimeError(
+        "Neo4j initialization failed"
+    ) from error

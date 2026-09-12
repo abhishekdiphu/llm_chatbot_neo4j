@@ -1,14 +1,17 @@
 import streamlit as st
 from utils import write_message
-from agent import Agent 
+
 import os
 import asyncio
+import logging
+
 
 os.environ["LANGSMITH_TRACING"] = "false"
 
 @st.cache_resource
 def get_agent():
     # Create a persistent event loop
+    from agent import Agent 
     loop = asyncio.new_event_loop()
 
     # Make it the current loop for this thread
@@ -25,11 +28,22 @@ def get_agent():
 
 class Chatbot:
     def __init__(self):
+
+        self.agent = None
+        self.loop = None
+        self.error_msg = None
+        self.logger = logging.getLogger(__name__)
         try:
             self.agent, self.loop = get_agent()
-            #self.generate_response = self.agent.generate_response
-        except Exception as e:
-            self.error_msg = "Error initializing the agent"
+        except Exception:
+            self.logger.exception(
+                "Agent initialization failed"
+            )
+
+            self.error_msg = (
+                "The chatbot is temporarily unavailable. "
+                "Please try again later."
+            )
 
     # Submit handler
     def handle_submit(self, message):
@@ -67,6 +81,52 @@ if __name__ == "__main__":
             {"role": "assistant", "content": "Hi, I'm the GraphAcademy Chatbot!  How can I help you?"},
         ]
     chatbot = Chatbot()
+
+    if st.sidebar.button("Finalize discussion"):
+        if chatbot.agent is None:
+            st.sidebar.error(
+                chatbot.error_msg
+                or "The agent is unavailable."
+            )
+        else:
+            try:
+                with st.spinner(
+                    "Saving dummy preferences..."
+                ):
+                    result = (
+                        chatbot.agent.finalize_discussion()
+                    )
+
+                saved_count = result.get(
+                    "saved_count",
+                    0,
+                )
+
+                if saved_count > 0:
+                    st.sidebar.success(
+                        f"Saved {saved_count} "
+                        f"dummy preferences."
+                    )
+
+                    for preference in result.get(
+                        "preferences",
+                        [],
+                    ):
+                        st.sidebar.write(
+                            f"**{preference['category']}**: "
+                            f"{preference['preference']}"
+                        )
+                else:
+                    st.sidebar.warning(
+                        "No preferences were saved."
+                    )
+
+            except Exception as error:
+                st.sidebar.error(
+                    f"Finalization failed: {error}"
+                )
+
+                
     # Display messages in Session State
     for message in st.session_state.messages:
         write_message(message['role'], message['content'], save=False)

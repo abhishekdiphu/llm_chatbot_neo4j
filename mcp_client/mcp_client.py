@@ -4,6 +4,7 @@ from typing import Any
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 import os
+import json
 
 
 class MCPClient:
@@ -21,9 +22,7 @@ class MCPClient:
         )
 
         self.mcp_server_url = os.getenv(
-            "MCP_SERVER_URL",
-            "http://host.docker.internal:8000/sse"
-        )
+            "MCP_SERVER_URL")
 
     async def _call_tool_async(self, tool_name: str, arguments: dict[str, Any]) -> str:
         """
@@ -192,3 +191,68 @@ class MCPClient:
     def get_neo4j_schema_tool(self, _: str = "") -> str:
         return self.read_resource("neo4j://schema")
 
+
+
+
+
+
+    def get_chat_history(
+    self,
+    session_id: str,
+    ) -> list[dict[str, str]]:
+        
+        result = self.call_tool(
+            "get_chat_history",
+            {
+                "session_id": session_id,
+            },
+        )
+
+        try:
+            data = json.loads(result)
+        except (TypeError, json.JSONDecodeError):
+            return []
+
+        if isinstance(data, list):
+            return data
+
+        if isinstance(data, dict):
+            return data.get("messages", [])
+
+        return []
+
+    def add_chat_message(
+                        self,
+                        session_id: str,
+                        role: str,
+                        content: str,
+                        user_id: str | None = None,
+                        ) -> str:
+                        return self.call_tool(
+                            "add_chat_message",
+                            {
+                                "session_id": session_id,
+                                "role": role,
+                                "content": content,
+                                "user_id": user_id,
+                            },
+                        )
+
+
+    def clear_chat_history(
+                        self,
+                        session_id: str,
+                        ) -> str:
+                            return self.call_tool(
+                                "clear_chat_history",
+                                {
+                                    "session_id": session_id,
+                                },
+                            )
+
+    def get_user_preferences(self, user_id: str, ) -> str:
+            return self.call_tool(tool_name="get_user_preferences", arguments={ "user_id": user_id, },)
+
+    
+    def save_user_preferences(self, user_id: str,preference: str, category: str,) -> str:
+            return self.call_tool(tool_name="get_user_preferences", arguments={ "user_id": user_id, preference: str, category: str},)
