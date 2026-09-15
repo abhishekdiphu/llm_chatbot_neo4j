@@ -10,9 +10,9 @@ from mcp_client.mcp_client import MCPClient
 
 
 class SavePreferenceInput(BaseModel):
+
     preference: str = Field(description="The preference to save")
     category: str = Field(description="Category: category, domain, subject,author etc.")
-
 
 
 class UserPreferencesTool(BaseTool):
@@ -48,4 +48,4 @@ class SavePreferenceTool(BaseTool):
     user_id: str
 
     def _run(self, preference: str, category: str) -> str:
-        return self.mcp_client.save_user_preference( user_id=self.user_id, preference=preference, category=category)
+        return self.mcp_client.save_user_preference(user_id=self.user_id, preference=preference, category=category)

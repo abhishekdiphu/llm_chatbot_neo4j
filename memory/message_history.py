@@ -14,21 +14,15 @@ class Neo4jChatMessageHistory(BaseChatMessageHistory):
     Neo4j history accessed through MCP.
     """
 
-    def __init__(
-        self,
-        mcp_client: MCPClient,
-        session_id: str,
-        user_id: str | None = None,
-    ):
+    def __init__(self, mcp_client: MCPClient, session_id: str, user_id: str | None = None,):
+
         self.mcp_client = mcp_client
         self.session_id = session_id
         self.user_id = user_id
 
     @property
     def messages(self) -> List[BaseMessage]:
-        records = self.mcp_client.get_chat_history(
-            session_id=self.session_id,
-        )
+        records = self.mcp_client.get_chat_history( session_id=self.session_id,)
 
         result = []
 
