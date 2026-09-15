@@ -80,53 +80,15 @@ if __name__ == "__main__":
         st.session_state.messages = [
             {"role": "assistant", "content": "Hi, I'm the GraphAcademy Chatbot!  How can I help you?"},
         ]
-    chatbot = Chatbot()
+    # Persist chatbot across Streamlit reruns
+    if "chatbot" not in st.session_state:
+        st.session_state.chatbot = Chatbot()
 
-    if st.sidebar.button("Finalize discussion"):
-        if chatbot.agent is None:
-            st.sidebar.error(
-                chatbot.error_msg
-                or "The agent is unavailable."
-            )
-        else:
-            try:
-                with st.spinner(
-                    "Saving dummy preferences..."
-                ):
-                    result = (
-                        chatbot.agent.finalize_discussion()
-                    )
+    chatbot = st.session_state.chatbot
 
-                saved_count = result.get(
-                    "saved_count",
-                    0,
-                )
+    
 
-                if saved_count > 0:
-                    st.sidebar.success(
-                        f"Saved {saved_count} "
-                        f"dummy preferences."
-                    )
 
-                    for preference in result.get(
-                        "preferences",
-                        [],
-                    ):
-                        st.sidebar.write(
-                            f"**{preference['category']}**: "
-                            f"{preference['preference']}"
-                        )
-                else:
-                    st.sidebar.warning(
-                        "No preferences were saved."
-                    )
-
-            except Exception as error:
-                st.sidebar.error(
-                    f"Finalization failed: {error}"
-                )
-
-                
     # Display messages in Session State
     for message in st.session_state.messages:
         write_message(message['role'], message['content'], save=False)
@@ -138,3 +100,35 @@ if __name__ == "__main__":
 
         # Generate a response
         chatbot.handle_submit(prompt)
+
+    with st.sidebar:
+    
+            if st.sidebar.button("Finalize discussion", use_container_width=True):
+                if chatbot.agent is None:
+                    st.sidebar.error(
+                        chatbot.error_msg
+                        or "The agent is unavailable."
+                    )
+                else:
+                    try:
+                        with st.spinner("Saving dummy preferences..."):
+                            result = (chatbot.agent.finalize_discussion())
+    
+                        saved_count = result.get("saved_count",0,)
+                        if saved_count > 0:
+                            st.sidebar.success(f"Saved {saved_count} "f"dummy preferences.")
+    
+                            for preference in result.get("preferences", [],):
+                                st.sidebar.write( f"**{preference['category']}**: " f"{preference['preference']}")
+                        else:
+                            st.sidebar.warning( "No preferences were saved.")
+    
+                    except Exception as error:
+                        st.sidebar.error(f"Finalization failed: {error}")
+    
+            if st.button("🗑️ Delete conversation",use_container_width=True):
+                try:
+                    chatbot.agent.delete_conversation()  
+                    write_message('assistant', "Conversation deleted.", save=False)   
+                except Exception as e:
+                    st.sidebar.error(f"Failed to delete conversation: {str(e)}") 

@@ -378,3 +378,16 @@ class Agent():
             
         return {"saved_count": len(saved),"preferences": saved,}
 
+
+
+    def delete_conversation(self) -> dict:
+            if self.message_history:
+                try:
+                    self.message_history.clear(session_id=self.session_id)
+                except Exception as e:
+                    return {"status": "error", "message": str(e)}
+
+            else:
+                return {"status": "error", "message": "No message history to clear."}
+            
+
