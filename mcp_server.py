@@ -1,11 +1,10 @@
 from mcp.server.fastmcp import FastMCP
-from llm import llm
-from langchain_core.output_parsers import StrOutputParser
+from llm import llm#, cus_llm
 
 from tools.vector_tool import VectorTool
 from tools.cypher_tool import CypherTool
 
-from langchain_core.prompts import ChatPromptTemplate
+
 from dataclasses import dataclass
 from neo4j import AsyncDriver, AsyncGraphDatabase
 from contextlib import asynccontextmanager
@@ -14,12 +13,29 @@ import os
 from mcp.server.fastmcp import Context
 
 
+from neo4j_agent_memory import (
+    MemoryClient,
+    MemorySettings,
+    ExtractionConfig,
+)
+from neo4j_agent_memory.integrations.langchain import (
+    llm_provider_from_langchain,
+)
+from neo4j_agent_memory.config import Neo4jConfig
+
+
+import urllib.parse
+import urllib.request
+import xml.etree.ElementTree as ET
+from pydantic import BaseModel
+
 
 @dataclass
 class AppContext:
     """Application context with Neo4j driver."""
     driver: AsyncDriver
     database: str
+    memory_client: MemoryClient
 
 @asynccontextmanager
 async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
@@ -27,7 +43,6 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
 
     # Read connection details from environment
     uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-    #uri = os.getenv("NEO4J_URI_LOCAL")
     username = os.getenv("NEO4J_USERNAME", "neo4j")
     password = os.getenv("NEO4J_PASSWORD", "password")
     database = os.getenv("NEO4J_DATABASE", "neo4j")
@@ -35,11 +50,33 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
     # Initialize driver on startup
     driver = AsyncGraphDatabase.driver(uri, auth=(username, password))
 
+    memory_settings = MemorySettings(
+        neo4j=Neo4jConfig(
+            uri=uri,
+            username=username,
+            password=password,
+            database=database,
+        ),
+        extraction=ExtractionConfig(
+            enable_spacy=False,
+            enable_gliner=False,
+        ),
+        llm=llm_provider_from_langchain(llm),
+        embedding="openai/text-embedding-3-small",
+    )
+
+    memory_client = MemoryClient(memory_settings)
+    await memory_client.connect()
+
     try:
         # Yield context with driver
-        yield AppContext(driver=driver, database=database)
+         yield AppContext(
+            driver=driver,
+            database=database,
+            memory_client=memory_client,
+        )
     finally:
-        # Close driver on shutdown
+        await memory_client.close()
         await driver.close()
 
 
@@ -56,36 +93,11 @@ class MCPServer():
 
         self.vector_tool = VectorTool()
         self.cypher_tool = CypherTool()
-        self.general_chat_prompt = ChatPromptTemplate.from_messages(
-                [
-                    (
-                        "system",
-                        """
-            You are a scientific paper assistant.
-
-            Use this tool only for general academic-paper explanations.
-            Examples:
-            - What is a DOI?
-            - What is an abstract?
-            - What is peer review?
-            - What is semantic search?
-            - What is an arXiv category?
-
-            Do not use this tool to find, recommend, retrieve, or summarize papers from the database.
-            For database questions, the agent should use vector_search or cypher_search.
-            """
-                    ),
-                    ("human", "{input}"),
-                ]
-            )
-        self.general_chat_chain = self.general_chat_prompt | llm | StrOutputParser()
-
         self.register_tools()
         self.register_resources()
 
     
     def run(self):
-        
         self.mcp.run()
 
 
@@ -149,7 +161,85 @@ class MCPServer():
 
 
     def register_tools(self):
-            
+    #-----------------------------      
+        @self.mcp.tool()
+        async def get_chat_history(
+            session_id: str,
+            ctx: Context,
+        ) -> list[dict[str, str]]:
+            """Return messages for one chat session."""
+
+            memory_client = (
+                ctx.request_context
+                .lifespan_context
+                .memory_client
+            )
+
+            conversation = (
+                await memory_client.short_term.get_conversation(
+                    session_id=session_id,
+                )
+            )
+
+            return [
+                {
+                    "role": message.role,
+                    "content": message.content,
+                }
+                for message in conversation.messages
+            ]
+
+
+
+        @self.mcp.tool()
+        async def add_chat_message(
+            session_id: str,
+            role: str,
+            content: str,
+            user_id: str | None,
+            ctx: Context,
+        ) -> str:
+            """Save one message."""
+
+            memory_client = (
+                ctx.request_context
+                .lifespan_context
+                .memory_client
+            )
+
+            await memory_client.short_term.add_message(
+                session_id=session_id,
+                role=role,
+                content=content,
+                metadata=(
+                    {"user_id": user_id}
+                    if user_id
+                    else None
+                ),
+            )
+
+            return "Message saved"
+
+
+        @self.mcp.tool()
+        async def clear_chat_history(
+            session_id: str,
+            ctx: Context,
+        ) -> str:
+            """Delete one chat session."""
+
+            memory_client = (
+                ctx.request_context
+                .lifespan_context
+                .memory_client
+            )
+
+            await memory_client.short_term.delete_session(
+                session_id=session_id,
+            )
+
+            return "History cleared"
+      #-----------------------------      
         @self.mcp.tool()
         def vector_search(question: str) -> str:
             """
@@ -181,16 +271,16 @@ class MCPServer():
         
 
 
-        @self.mcp.tool()
-        def general_paper_chat(question: str) -> str:
-            """
-            General scientific-paper chat.
-
-            Use this only for general academic concept explanations.
-            Do not use this for database retrieval, paper recommendations, author lookup,
-            category lookup, or paper metadata questions.
-            """
-            return self.general_chat_chain.invoke({"input": question})
+    #   @self.mcp.tool()
+    #    def general_paper_chat(question: str) -> str:
+    #        """
+    #        General scientific-paper chat.
+    #
+    #        Use this only for general academic concept explanations.
+    #        Do not use this for database retrieval, paper recommendations, author lookup,
+    #        category lookup, or paper metadata questions.
+    #        """
+    #        return self.general_chat_chain.invoke({"input": question})
 
         
         @self.mcp.tool()
@@ -211,4 +301,59 @@ class MCPServer():
             # Process the results
             if records:
                 return dict(records[0])
-            return {"nodes": 0, "relationships": 0}
+            else:
+                return {"nodes": 0, "relationships": 0}
+#----------------long term memory tools-----------------------------
+        @self.mcp.tool()
+        async def get_user_preferences( user_id: str, ctx: Context, ) -> dict[str, list[str]]:
+            """Return long-term preferences for a user."""
+
+            memory_client = (ctx.request_context.lifespan_context.memory_client)
+
+            preferences = await memory_client.long_term.get_preferences_for( user_identifier=user_id)
+            grouped: dict[str, list[str]] = {}
+            for item in preferences:
+                grouped.setdefault(item.category,[],).append(item.preference)
+
+            return grouped
+
+
+        @self.mcp.tool()
+        async def set_user_preferences( preference: str, category: str, user_id: str, ctx: Context,) -> str:
+                    """Return long-term preferences for a user."""
+        
+                    memory_client = (ctx.request_context.lifespan_context.memory_client)
+        
+                    preferences_to_save = await memory_client.long_term.add_preference(category=category, preference=preference, confidence=0.85, user_identifier=user_id)
+
+                    return (f"Saved preference: " f"{preferences_to_save.category} - {preferences_to_save.preference}")
+
+
+        @self.mcp.tool()
+        def arvix_paper_chat(query: str,  max_results: int = 5) -> str:
+                papers = []
+                result = ""
+                params = {"search_query": f"all:{query}",  "start": 0, "max_results": max_results,"sortBy": "relevance", "sortOrder": "descending"}
+                url = ("http://export.arxiv.org/api/query?" + urllib.parse.urlencode(params))
+                response = urllib.request.urlopen(url)
+                xml_data = response.read()
+                root = ET.fromstring(xml_data)
+                namespace = {"atom": "http://www.w3.org/2005/Atom"}
+                for entry in root.findall("atom:entry", namespace):
+                    title = entry.find("atom:title",namespace).text.strip()
+                    abstract = entry.find( "atom:summary", namespace).text.strip()
+                    published = entry.find( "atom:published", namespace ).text
+                    arxiv_url = entry.find( "atom:id", namespace ).text
+                    authors = [author.find("atom:name",namespace).text for author in entry.findall("atom:author",namespace)]
+                    papers.append({"title": title,"abstract": abstract, "authors": authors, "published": published, "url": arxiv_url,})
+
+                for paper in papers[:max_results]:
+                    result += f"""
+                                Title: {paper['title']}
+                                URL: {paper['url']}
+                                Abstract: {paper['abstract']}
+                                """
+
+                print("result length:", len(result))
+                return result
+
