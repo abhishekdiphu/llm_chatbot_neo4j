@@ -2,44 +2,32 @@ import os
 import requests
 from dotenv import load_dotenv
 from neo4j import GraphDatabase
-
 from llama_cpp import Llama
 
 load_dotenv()
+class EmbeddingConfig:
+    NEO4J_URI = os.getenv("NEO4J_URI", "neo4j://127.0.0.1:7687")
+    NEO4J_USERNAME = os.getenv("NEO4J_USERNAME", "neo4j")
+    NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
+    NEO4J_DATABASE = os.getenv("NEO4J_DATABASE", "neo4j")
+    LLAMA_EMBEDDING_URL = os.getenv("LLAMA_EMBEDDING_URL", "http://localhost:8081/v1/embeddings")
+    EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "embeddinggemma-300m-GGUF:BF16")
+    EMBEDDING_DIMENSIONS = int(os.getenv("EMBEDDING_DIMENSIONS", "768"))
+    BATCH_SIZE = int(os.getenv("BATCH_SIZE", "8"))
+
+configs = EmbeddingConfig()
+print(f"current batch size: {configs.BATCH_SIZE}")
+driver = GraphDatabase.driver(configs.NEO4J_URI,auth=(configs.NEO4J_USERNAME, configs.NEO4J_PASSWORD),)
+
+TOKENIZER_MODEL_PATH = "/Users/abhishekburagohain/.cache/huggingface/hub/models--unsloth--embeddinggemma-300m-GGUF/" \
+"snapshots/6661a6504c30d8304af13455cb4a5d4f5bc6011f/embeddinggemma-300M-BF16.gguf"
+
+tokenizer = Llama(model_path=TOKENIZER_MODEL_PATH, embedding=True, verbose=False)
 
 
 
 
 
-NEO4J_URI = os.getenv("NEO4J_URI", "neo4j://127.0.0.1:7687")
-NEO4J_USERNAME = os.getenv("NEO4J_USERNAME", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
-NEO4J_DATABASE = os.getenv("NEO4J_DATABASE", "neo4j")
-
-LLAMA_EMBEDDING_URL = os.getenv(
-    "LLAMA_EMBEDDING_URL",
-    "http://localhost:8081/v1/embeddings"
-)
-
-EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "embeddinggemma-300m-GGUF:BF16")
-EMBEDDING_DIMENSIONS = int(os.getenv("EMBEDDING_DIMENSIONS", "768"))
-
-BATCH_SIZE = int(os.getenv("BATCH_SIZE", "8"))
-
-print(f"current batch size: {BATCH_SIZE}")
-
-
-driver = GraphDatabase.driver(
-    NEO4J_URI,
-    auth=(NEO4J_USERNAME, NEO4J_PASSWORD),
-)
-
-TOKENIZER_MODEL_PATH = "/Users/abhishekburagohain/.cache/huggingface/hub/models--unsloth--embeddinggemma-300m-GGUF/snapshots/6661a6504c30d8304af13455cb4a5d4f5bc6011f/embeddinggemma-300M-BF16.gguf"
-tokenizer = Llama(
-    model_path=TOKENIZER_MODEL_PATH,
-    embedding=True,
-    verbose=False,
-)
 
 
 def count_tokens(text: str) -> int:
@@ -47,19 +35,11 @@ def count_tokens(text: str) -> int:
 
 def get_embeddings(texts):
 
-    response = requests.post(
-        LLAMA_EMBEDDING_URL,
-        json={
-            "input": texts,
-            "model": EMBEDDING_MODEL_NAME,
-            "encoding_format": "float",
-        },
-        timeout=120,
-    )
-
+    response = requests.post(configs.LLAMA_EMBEDDING_URL,
+        json={"input": texts,"model": configs.EMBEDDING_MODEL_NAME, "encoding_format": "float",},
+        timeout=120)
     response.raise_for_status()
     data = response.json()
-
     return [item["embedding"] for item in data["data"]]
 
 
@@ -79,7 +59,7 @@ def create_constraints_and_index(tx):
         ON c.embedding
         OPTIONS {{
           indexConfig: {{
-            `vector.dimensions`: {EMBEDDING_DIMENSIONS},
+            `vector.dimensions`: {configs.EMBEDDING_DIMENSIONS},
             `vector.similarity_function`: 'cosine'
           }}
         }}
@@ -138,11 +118,11 @@ def limit_text_by_tokens(text: str, max_tokens: int = 500) -> str:
 def main():
     total = 0
 
-    with driver.session(database=NEO4J_DATABASE) as session:
+    with driver.session(database=configs.NEO4J_DATABASE) as session:
         session.execute_write(create_constraints_and_index)
 
         while True:
-            papers = session.execute_read(fetch_papers_without_chunks, BATCH_SIZE)
+            papers = session.execute_read(fetch_papers_without_chunks, configs.BATCH_SIZE)
 
             if not papers:
                 break
@@ -183,7 +163,7 @@ def main():
                         "chunk_type": "title_abstract",
                         "text": text,
                         "embedding": vector,
-                        "embedding_model": EMBEDDING_MODEL_NAME,
+                        "embedding_model": configs.EMBEDDING_MODEL_NAME,
                         "embedding_dimensions": len(vector),
                     }
                 )

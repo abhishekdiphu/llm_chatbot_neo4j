@@ -8,10 +8,10 @@ custom_llm = False
 
 openai_api_key = st.secrets['OPENAI_API_KEY']
 openai_model = st.secrets['OPENAI_MODEL']
-llm = ChatOpenAI(
-openai_api_key=st.secrets["OPENAI_API_KEY"],
-model=st.secrets["OPENAI_MODEL"]
-)
+llm = ChatOpenAI(openai_api_key=st.secrets["OPENAI_API_KEY"],
+                 model=st.secrets["OPENAI_MODEL"],
+                 max_completion_tokens=4096)
+
 
 if custom_llm:
     from custom_llms.custom_llm import cus_llm

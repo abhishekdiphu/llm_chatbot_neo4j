@@ -256,3 +256,11 @@ class MCPClient:
     
     def save_user_preferences(self, user_id: str,preference: str, category: str,) -> str:
             return self.call_tool(tool_name="get_user_preferences", arguments={ "user_id": user_id, preference: str, category: str},)
+
+
+
+    def arvix_paper_chat(self, query: str, max_results: int = 2) -> str:
+        return self.call_tool(
+            tool_name="arvix_paper_chat",
+            arguments={"query": query, "max_results": max_results},
+        )

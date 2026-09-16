@@ -208,6 +208,12 @@ class Agent():
                 ),
                 func=self.mcp_client.graph_statistics,
             ),
+            Tool.from_function(
+                            name="arvix_paper_chat",
+                            description=("Use this tool to search for papers on arXiv.It is a fallback tool for external paper search."),
+                            func=self.mcp_client.arvix_paper_chat,
+                            
+                        ),
          
     ]
 
