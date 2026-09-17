@@ -48,4 +48,4 @@ class SavePreferenceTool(BaseTool):
     user_id: str
 
     def _run(self, preference: str, category: str) -> str:
-        return self.mcp_client.save_user_preference(user_id=self.user_id, preference=preference, category=category)
+        return self.mcp_client.save_user_preferences(user_id=self.user_id, preference=preference, category=category)

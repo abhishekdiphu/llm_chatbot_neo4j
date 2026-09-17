@@ -1,31 +1,18 @@
-from openai import chat
-
 from llm import llm , embeddings, cus_llm
 from graph import graph
-
 from langchain_core.prompts import ChatPromptTemplate
-from langchain.schema import StrOutputParser
-
 from langchain.tools import Tool
-
 from langchain.agents import AgentExecutor, create_react_agent
-
-from langchain import hub
 from langchain_core.prompts import PromptTemplate
-
-from utils import ExtractedPreference, get_session_id
+from utils import ExtractedPreference
 from mcp_client.mcp_client import MCPClient
-
-import os
 from memory.message_history import Neo4jChatMessageHistory
-
 from datetime import datetime
-
 from langchain.memory import ConversationBufferWindowMemory
-
 from tools.long_memory import UserPreferencesTool, SavePreferenceTool
 from utils import ExtractedPreferences
-import asyncio
+from memory.reasoning_trace import ReasoningTraceCallback
+
 
 """
 ┌─────────────────────────────────────────────────────┐
@@ -94,7 +81,8 @@ Answer
 
 class Agent():
     def __init__(self, llm=None, cus_llm=llm, graph=graph, embeddings=embeddings, user_id="abhishek"):    
-        self.user_id = user_id
+
+        self.user_id = user_id.strip()
         self.session_id = f"user-{self.user_id}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
         self.graph = graph
         self.embeddings = embeddings
@@ -144,15 +132,7 @@ class Agent():
         Question: {input}
         Thought:{agent_scratchpad}
         """)
-        #New input: {input}
-        #{agent_scratchpad}
-                
-        
-
-
-
-
-       
+     
 
         self.chat_prompt = ChatPromptTemplate.from_messages(
             [
@@ -276,24 +256,12 @@ class Agent():
         self.message_history = None
         self.memory = None
         self.agent_executor = None
-        self.callback = None
+
+        self.callback = ReasoningTraceCallback( mcp_client=self.mcp_client,
+                                                user_id=self.user_id,
+                                                session_id=self.session_id)
         
 
-        
-
-
-        # Create a handler to call the agent
-
-        #self.chat_agent = RunnableWithMessageHistory(
-        #    self.agent_executor,
-        #    #self.get_memory,
-        #    input_messages_key="input",
-        #    history_messages_key="chat_history",
-        #)
-
-    # Create chat history callback
-    #def get_memory(self, session_id):
-    #    return Neo4jChatMessageHistory(session_id=session_id, graph=self.graph)
 
     def generate_response(self, user_input):
         """
@@ -303,51 +271,46 @@ class Agent():
     
 
         try:
-            response = self.agent_executor.invoke(
-                {"input": user_input},
-                config={"configurable": {"session_id": self.session_id},
-                #"callbacks": [self.callback],
-                })
-            
+            response = self.agent_executor.invoke({"input": user_input},
+                                                   config={"configurable": {"session_id": self.session_id}, 
+                                                           "callbacks": [self.callback],
+                                                           })
             return response['output']
 
-
-        
         except Exception as e:
-
             return str(e)
 
-            #raise
 
 
     async def initialize(self):
 
         status= await self.mcp_client.test_connection()
         if status:
+
             # Create message history
             self.message_history = Neo4jChatMessageHistory(
-            mcp_client=self.mcp_client,
-            session_id=self.session_id,
-            user_id=self.user_id,
-        )
+                                    mcp_client=self.mcp_client,
+                                    session_id=self.session_id,
+                                    user_id=self.user_id,
+                                )
 
             # Create memory
             self.memory = ConversationBufferWindowMemory(
-                chat_memory=self.message_history,
-                k=3,  # Last 3 messages
-                memory_key="chat_history",
-                return_messages=True,
-            )
+                                                        chat_memory=self.message_history,
+                                                        k=3,  # Last 3 messages
+                                                        memory_key="chat_history",
+                                                        return_messages=True,
+                                                    )
 
             
             self.agent_executor = AgentExecutor(
-                agent=self.agent,
-                tools=self.tools,
-                verbose=True,
-                memory=self.memory,
-                handle_parsing_errors=True,
-                max_iterations=3
-                )
+                                                agent=self.agent,
+                                                tools=self.tools,
+                                                verbose=True,
+                                                memory=self.memory,
+                                                handle_parsing_errors=True,
+                                                max_iterations=3
+                                                )
         else:
             print("mcp connection failed")
 

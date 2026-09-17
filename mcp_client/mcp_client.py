@@ -255,7 +255,7 @@ class MCPClient:
 
     
     def save_user_preferences(self, user_id: str,preference: str, category: str,) -> str:
-            return self.call_tool(tool_name="get_user_preferences", arguments={ "user_id": user_id, preference: str, category: str},)
+            return self.call_tool(tool_name="save_user_preferences", arguments={ "user_id": user_id, preference: str, category: str},)
 
 
 
@@ -266,9 +266,51 @@ class MCPClient:
         )
 
 
+    def start_reasoning_trace(self,session_id: str,user_id: str,task: str) -> str:
+        return self.call_tool(tool_name="start_reasoning_trace",
+                              arguments={
+                                    "session_id": session_id,
+                                    "user_id": user_id,
+                                    "task": task},
+                                )
 
+    def add_reasoning_step(self,trace_id: str,thought: str, action: str = None) -> str:
+            return self.call_tool(tool_name="add_reasoning_step",
+                                  arguments={
+                                        "trace_id": trace_id,
+                                        "thought": thought,
+                                        "action": action,},
+                                )
+
+
+    def record_reasoning_tool_call(self, step_id: str, tool_name: str, arguments: dict, result: dict | None = None, 
+                                    status: str = "success", error: str | None = None) -> str:
+
+            return self.call_tool ( tool_name="record_reasoning_tool_call",
+                                    arguments={
+                                        "step_id": step_id,
+                                        "tool_name": tool_name,
+                                        "arguments": arguments,
+                                        "result": result,
+                                        "status": status,
+                                        "error": error},
+                                    )
+
+
+    def complete_reasoning_trace(self, trace_id: str, outcome: str, success: bool) -> str:
+
+
+            return self.call_tool(  tool_name="complete_reasoning_trace",
+                                    arguments={
+                                        "trace_id": trace_id,
+                                        "outcome": outcome,
+                                        "success": success},
+                                 )
+
+
+
+    
     async def test_connection(self):
-
         try:
             async with streamable_http_client(self.mcp_server_url) as (read, write, _):
                 async with ClientSession(read,write) as session:
