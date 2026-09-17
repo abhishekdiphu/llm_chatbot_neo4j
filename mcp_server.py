@@ -1,6 +1,5 @@
 from mcp.server.fastmcp import FastMCP
-from llm import llm#, cus_llm
-
+from llm import llm
 from tools.vector_tool import VectorTool
 from tools.cypher_tool import CypherTool
 
@@ -23,11 +22,7 @@ from neo4j_agent_memory.integrations.langchain import (
 )
 from neo4j_agent_memory.config import Neo4jConfig
 
-
-import urllib.parse
-import urllib.request
-import xml.etree.ElementTree as ET
-from pydantic import BaseModel
+from tools.arvix_tool import arvix_search
 
 
 @dataclass
@@ -97,8 +92,8 @@ class MCPServer():
         self.register_resources()
 
     
-    def run(self):
-        self.mcp.run()
+    def run(self,transport="stdio"):
+        self.mcp.run(transport=transport)
 
 
 
@@ -330,30 +325,14 @@ class MCPServer():
 
 
         @self.mcp.tool()
-        def arvix_paper_chat(query: str,  max_results: int = 5) -> str:
-                papers = []
-                result = ""
-                params = {"search_query": f"all:{query}",  "start": 0, "max_results": max_results,"sortBy": "relevance", "sortOrder": "descending"}
-                url = ("http://export.arxiv.org/api/query?" + urllib.parse.urlencode(params))
-                response = urllib.request.urlopen(url)
-                xml_data = response.read()
-                root = ET.fromstring(xml_data)
-                namespace = {"atom": "http://www.w3.org/2005/Atom"}
-                for entry in root.findall("atom:entry", namespace):
-                    title = entry.find("atom:title",namespace).text.strip()
-                    abstract = entry.find( "atom:summary", namespace).text.strip()
-                    published = entry.find( "atom:published", namespace ).text
-                    arxiv_url = entry.find( "atom:id", namespace ).text
-                    authors = [author.find("atom:name",namespace).text for author in entry.findall("atom:author",namespace)]
-                    papers.append({"title": title,"abstract": abstract, "authors": authors, "published": published, "url": arxiv_url,})
+        async def arvix_paper_chat(query: str,  max_results: int = 5) -> str:
 
-                for paper in papers[:max_results]:
-                    result += f"""
-                                Title: {paper['title']}
-                                URL: {paper['url']}
-                                Abstract: {paper['abstract']}
-                                """
+            try:
+                result = await arvix_search(query=query, max_results=max_results)
+            except Exception as e:
+                print(f"Error occurred while searching arXiv: {e}")
+                result = "Error occurred while searching arXiv."
 
-                print("result length:", len(result))
-                return result
+            print("result length:", len(result))
+            return result
 
