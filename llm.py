@@ -23,11 +23,14 @@ else:
 
 
 
-
-embeddings = OpenAIEmbeddings(
-    model=st.secrets.get("EMBEDDING_MODEL_NAME", "embeddinggemma-300m-GGUF:BF16"),
-    base_url=st.secrets.get("LLAMA_EMBEDDING_BASE_URL", "http://localhost:8081/v1"),
-    #base_url=st.secrets.get("LLAMA_EMBEDDING_BASE_URL", "http://host.docker.internal:8081/v1"),
-    api_key=st.secrets.get("LLAMA_EMBEDDING_API_KEY", "not-needed"),
-)
+try:
+    embeddings = OpenAIEmbeddings(
+        model=st.secrets.get("EMBEDDING_MODEL_NAME", "embeddinggemma-300m-GGUF:BF16"),
+        base_url=st.secrets.get("LLAMA_EMBEDDING_BASE_URL", "http://localhost:8081/v1"),
+        #base_url=st.secrets.get("LLAMA_EMBEDDING_BASE_URL", "http://host.docker.internal:8081/v1"),
+        api_key=st.secrets.get("LLAMA_EMBEDDING_API_KEY", "not-needed"),
+    )
+except Exception as e:
+    print("Error initializing embeddings:")
+    embeddings = None
 

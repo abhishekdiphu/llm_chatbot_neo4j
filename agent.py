@@ -25,7 +25,7 @@ from langchain.memory import ConversationBufferWindowMemory
 
 from tools.long_memory import UserPreferencesTool, SavePreferenceTool
 from utils import ExtractedPreferences
-
+import asyncio
 
 """
 ┌─────────────────────────────────────────────────────┐
@@ -321,37 +321,46 @@ class Agent():
 
 
     async def initialize(self):
-       
 
-        # Create message history
-        self.message_history = Neo4jChatMessageHistory(
-        mcp_client=self.mcp_client,
-        session_id=self.session_id,
-        user_id=self.user_id,
-    )
-
-        # Create memory
-        self.memory = ConversationBufferWindowMemory(
-            chat_memory=self.message_history,
-            k=3,  # Last 3 messages
-            memory_key="chat_history",
-            return_messages=True,
+        status= await self.mcp_client.test_connection()
+        if status:
+            # Create message history
+            self.message_history = Neo4jChatMessageHistory(
+            mcp_client=self.mcp_client,
+            session_id=self.session_id,
+            user_id=self.user_id,
         )
 
-        
-        self.agent_executor = AgentExecutor(
-            agent=self.agent,
-            tools=self.tools,
-            verbose=True,
-            memory=self.memory,
-            handle_parsing_errors=True,
-            max_iterations=3
+            # Create memory
+            self.memory = ConversationBufferWindowMemory(
+                chat_memory=self.message_history,
+                k=3,  # Last 3 messages
+                memory_key="chat_history",
+                return_messages=True,
             )
 
-    async def close(self):
-        pass
+            
+            self.agent_executor = AgentExecutor(
+                agent=self.agent,
+                tools=self.tools,
+                verbose=True,
+                memory=self.memory,
+                handle_parsing_errors=True,
+                max_iterations=3
+                )
+        else:
+            print("mcp connection failed")
+
+
+
+
+
 
     def finalize_discussion(self) -> dict:
+        """
+        long term memory usage
+        
+        """
         records = self.mcp_client.get_chat_history( session_id=self.session_id)
 
         if not records:return {"saved_count": 0, "preferences": [],}
@@ -387,6 +396,8 @@ class Agent():
 
 
     def delete_conversation(self) -> dict:
+            """delete short term message after usage"""
+            
             if self.message_history:
                 try:
                     self.message_history.clear(session_id=self.session_id)

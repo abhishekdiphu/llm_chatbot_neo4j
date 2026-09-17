@@ -3,6 +3,7 @@ from typing import Any
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+from mcp.client.streamable_http import streamable_http_client
 import os
 import json
 
@@ -21,8 +22,7 @@ class MCPClient:
             args=["-m", "mcp_server.main"],
         )
 
-        self.mcp_server_url = os.getenv(
-            "MCP_SERVER_URL")
+        self.mcp_server_url = os.getenv("MCP_SERVER_URL", "http://localhost:8000/mcp")
 
     async def _call_tool_async(self, tool_name: str, arguments: dict[str, Any]) -> str:
         """
@@ -32,7 +32,7 @@ class MCPClient:
         3. calls the selected MCP tool
         4. returns plain text
         """
-        async with stdio_client(self.server_params) as (read, write):
+        async with streamable_http_client(self.mcp_server_url) as (read, write, _):
             async with ClientSession(read, write) as session:
                 await session.initialize()
 
@@ -264,3 +264,25 @@ class MCPClient:
             tool_name="arvix_paper_chat",
             arguments={"query": query, "max_results": max_results},
         )
+
+
+
+    async def test_connection(self):
+
+        try:
+            async with streamable_http_client(self.mcp_server_url) as (read, write, _):
+                async with ClientSession(read,write) as session:
+                    await session.initialize()
+                    print("✓ MCP connection successful")
+                    # Ask server which tools it exposes
+                    tools = await session.list_tools()
+                    print("Available tools:")
+                    for tool in tools.tools:
+                        print(f"  - {tool.name}")
+                    return True
+
+        except Exception as error:
+            print("✗ MCP connection failed")
+            print(error)
+
+
