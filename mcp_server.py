@@ -336,3 +336,66 @@ class MCPServer():
             print("result length:", len(result))
             return result
 
+
+
+
+
+
+#------------------------tracing------------------------------#
+        @self.mcp.tool()
+        async def start_reasoning_trace(
+                                        session_id: str,
+                                        user_id: str,
+                                        task: str,
+                                        ctx: Context,
+                                        ) -> dict[str, str]:
+
+                memory_client = (ctx.request_context.lifespan_context.memory_client)
+                trace = await memory_client.reasoning.start_trace(session_id=session_id,task=task,metadata={"user_id": user_id})
+                return {"trace_id": str(trace.id)}
+                pass
+
+        @self.mcp.tool()
+        async def add_reasoning_step(
+                                    trace_id: str,
+                                    thought: str,
+                                    action: str | None,
+                                    ctx: Context,
+                                    ) -> dict[str, str]:
+
+                memory_client = (ctx.request_context.lifespan_context.memory_client)
+                step = await memory_client.reasoning.add_step(trace_id=trace_id,thought=thought, action=action)
+                return {"step_id": str(step.id)}
+                pass
+
+        @self.mcp.tool()
+        async def record_reasoning_tool_call(
+                                            step_id: str,
+                                            tool_name: str,
+                                            arguments: dict,
+                                            result: dict | None,
+                                            status: str,
+                                            error: str | None,
+                                            ctx: Context,
+                                        ) -> str:
+                memory_client = (ctx.request_context.lifespan_context.memory_client)
+                await memory_client.reasoning.record_tool_call( step_id=step_id, tool_name=tool_name,
+                                                                arguments=arguments, result=result,
+                                                                status=status, error=error)
+
+                return "Tool call recorded"
+                pass
+
+        @self.mcp.tool()
+        async def complete_reasoning_trace(
+                                            trace_id: str,
+                                            outcome: str,
+                                            success: bool,
+                                            ctx: Context,
+                                        ) -> str:
+                memory_client = (ctx.request_context.lifespan_context.memory_client)
+                await memory_client.reasoning.complete_trace(trace_id=trace_id, outcome=outcome, success=success)
+                pass
+        #------------------------tracing------------------------------#
+
+           
