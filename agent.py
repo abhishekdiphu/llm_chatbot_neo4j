@@ -1,3 +1,33 @@
+
+
+"""
+                                ┌─────────────────────────────────────────────────────┐
+                                │                   LangChain Agent                   │
+                                │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  │
+                                │  │    Tools    │  │   Memory    │  │    Chain    │  │
+                                │  │             │  │  Interface  │  │             │  │
+                                │  └──────┬──────┘  └──────┬──────┘  └─────────────┘  │
+                                │         │                │                          │
+                                │         ▼                ▼                          │
+                                │  ┌─────────────────────────────────────────────┐    │
+                                │  │        Neo4jAgentMemory Adapter             │    │
+                                │  │  • Implements BaseChatMessageHistory        │    │
+                                │  │  • Provides entity/preference tools         │    │
+                                │  │  • Callbacks for reasoning traces           │    │
+                                │  └──────────────────────┬──────────────────────┘    │
+                                └─────────────────────────┼───────────────────────────┘
+                                                          │
+                                                          ▼
+                                ┌─────────────────────────────────────────────────────┐
+                                │               Neo4j Context Graph                   │
+                                │  Messages ──── Entities ──── Preferences            │
+                                │      │            │              │                  │
+                                │      └────────────┴──────────────┘                  │
+                                │            Reasoning Traces                         │
+                                └─────────────────────────────────────────────────────┘
+"""
+
+
 from llm import llm , embeddings, cus_llm
 from graph import graph
 from langchain_core.prompts import ChatPromptTemplate
@@ -12,75 +42,12 @@ from langchain.memory import ConversationBufferWindowMemory
 from tools.long_memory import UserPreferencesTool, SavePreferenceTool
 from utils import ExtractedPreferences
 from memory.reasoning_trace import ReasoningTraceCallback
-
-
-"""
-┌─────────────────────────────────────────────────────┐
-│                   LangChain Agent                   │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐ │
-│  │    Tools    │  │   Memory    │  │    Chain    │ │
-│  │             │  │  Interface  │  │             │ │
-│  └──────┬──────┘  └──────┬──────┘  └─────────────┘ │
-│         │                │                          │
-│         ▼                ▼                          │
-│  ┌─────────────────────────────────────────────┐   │
-│  │        Neo4jAgentMemory Adapter             │   │
-│  │  • Implements BaseChatMessageHistory        │   │
-│  │  • Provides entity/preference tools         │   │
-│  │  • Callbacks for reasoning traces           │   │
-│  └──────────────────────┬──────────────────────┘   │
-└─────────────────────────┼───────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────┐
-│               Neo4j Context Graph                   │
-│  Messages ──── Entities ──── Preferences            │
-│      │            │              │                  │
-│      └────────────┴──────────────┘                  │
-│            Reasoning Traces                         │
-└─────────────────────────────────────────────────────┘
-
-
-User
- │
- │ "papers about graph sparsity"
- ▼
-Embedding model
- │
- ▼
-query embedding
- │
- ▼
-chunk_embedding_index
- │
- │ vector similarity
- ▼
-(:Chunk)
- │
- │ graph traversal
- ▼
-(:Paper) ──► (:Author)
- │
- └────────► (:Category)
- │
- ▼
-PAPER_RETRIEVAL_QUERY
- │
- ▼
-Rich retrieval result
- │
- ▼
-LLM
- │
- ▼
-Answer
-
-"""
+from prompts import REACT_PROMPT
 
 
 
 class Agent():
-    def __init__(self, llm=None, cus_llm=llm, graph=graph, embeddings=embeddings, user_id="abhishek"):    
+    def __init__(self, llm=None, cus_llm=cus_llm, graph=graph, embeddings=embeddings, user_id="abhishek"):    
 
         self.user_id = user_id.strip()
         self.session_id = f"user-{self.user_id}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
@@ -132,7 +99,7 @@ class Agent():
         Question: {input}
         Thought:{agent_scratchpad}
         """)
-     
+        #self.agent_prompt_local = PromptTemplate.from_template(REACT_PROMPT)
 
         self.chat_prompt = ChatPromptTemplate.from_messages(
             [
@@ -288,11 +255,10 @@ class Agent():
         if status:
 
             # Create message history
-            self.message_history = Neo4jChatMessageHistory(
-                                    mcp_client=self.mcp_client,
-                                    session_id=self.session_id,
-                                    user_id=self.user_id,
-                                )
+            self.message_history = Neo4jChatMessageHistory( mcp_client=self.mcp_client,
+                                                            session_id=self.session_id,
+                                                            user_id=self.user_id,
+                                                        )
 
             # Create memory
             self.memory = ConversationBufferWindowMemory(
