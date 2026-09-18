@@ -1,5 +1,5 @@
 from mcp.server.fastmcp import FastMCP
-from llm import llm
+from llm import llm, mem_embeddings 
 from tools.vector_tool import VectorTool
 from tools.cypher_tool import CypherTool
 
@@ -41,10 +41,8 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
     username = os.getenv("NEO4J_USERNAME", "neo4j")
     password = os.getenv("NEO4J_PASSWORD", "password")
     database = os.getenv("NEO4J_DATABASE", "neo4j")
-
     # Initialize driver on startup
     driver = AsyncGraphDatabase.driver(uri, auth=(username, password))
-
     memory_settings = MemorySettings(
         neo4j=Neo4jConfig(
             uri=uri,
@@ -57,7 +55,7 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
             enable_gliner=False,
         ),
         llm=llm_provider_from_langchain(llm),
-        embedding="openai/text-embedding-3-small",
+        embedding=mem_embeddings #"openai/text-embedding-3-small",
     )
 
     memory_client = MemoryClient(memory_settings)
