@@ -8,17 +8,24 @@ from langchain_core.runnables import RunnableLambda
 from transformers import MetalConfig
 
 
+class Models:
 
-llamma = "meta-llama/Llama-3.2-1B-Instruct"
-llamma_adpt = "../llm_train/outputs/02/Llama-3.2-1B-Instruct-lora-adapter"
-qwen= "Qwen/Qwen3-4B"
-qwen_adpt = "./llm_train/outputs/03/qwen3-4b-react-adapter"
-
-qwen_react_base = "Qwen/Qwen2.5-3B-Instruct"
-qwen_react_adapter="Cheng-1/agenttune-qwen2.5-3b-react-lora"
+    llamma = "meta-llama/Llama-3.2-1B-Instruct"
+    llamma_adpt = "../llm_train/outputs/02/Llama-3.2-1B-Instruct-lora-adapter"
 
 
-class LocalLLAMA:
+    qwen= "Qwen/Qwen3-4B"
+    qwen_adpt = "./llm_train/outputs/03/qwen3-4b-react-adapter"
+
+
+    qwen_react_base = "Qwen/Qwen2.5-3B-Instruct"
+    qwen_react_adapter="Cheng-1/agenttune-qwen2.5-3b-react-lora"
+
+
+
+
+
+class CustomModel:
     def __init__(self, base_model=None, adapter_path= None, max_new_tokens=100):
         self.base_model = base_model
         self.adapter_path = adapter_path
@@ -112,13 +119,9 @@ class LocalLLAMA:
         return final_response
 
 
-
-local_llama = LocalLLAMA(base_model=qwen_react_base, adapter_path=qwen_react_adapter).load()
-print("loading completed for local llm", qwen_react_base)
-
-
-
-
+models= Models()
+local_llama = CustomModel(base_model=models.qwen_react_base, adapter_path=models.qwen_react_adapter).load()
+print("loading completed for local llm", models.qwen_react_base)
 
 
 def local_llm_invoke(prompt_value, model=local_llama, **kwargs ):

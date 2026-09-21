@@ -1,7 +1,7 @@
 import json
 from uuid import UUID
 
-from langchain.callbacks.base import BaseCallbackHandler
+from langchain_core.callbacks import BaseCallbackHandler
 
 from mcp_client.mcp_client import MCPClient
 
@@ -33,7 +33,8 @@ class ReasoningTraceCallback(BaseCallbackHandler):
         if parent_run_id is not None or self.trace_id is not None:
             return
 
-        task = str(inputs.get("input", ""))[:2000]
+        messages = inputs.get("messages", [])
+        task = str(messages[-1].content if messages else "")[:2000]
 
         response = self.mcp_client.start_reasoning_trace(
             session_id=self.session_id,
@@ -112,9 +113,8 @@ class ReasoningTraceCallback(BaseCallbackHandler):
         if run_id != self.root_run_id or not self.trace_id:
             return
 
-        outcome = str(
-            outputs.get("output", "Chain completed")
-        )[:5000]
+        messages = outputs.get("messages", [])
+        outcome = str(messages[-1].content if messages else "Chain completed")[:5000]
 
         self.mcp_client.complete_reasoning_trace(
             trace_id=self.trace_id,
@@ -128,4 +128,3 @@ class ReasoningTraceCallback(BaseCallbackHandler):
         self.root_run_id = None
         self.trace_id = None
         self.tool_steps.clear()
-

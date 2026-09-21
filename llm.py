@@ -7,7 +7,7 @@ from neo4j_agent_memory.config import EmbeddingConfig
 from neo4j_agent_memory.config.settings import EmbeddingProvider
 
 
-custom_llm = True
+custom_llm = False
 
 openai_api_key = st.secrets['OPENAI_API_KEY']
 openai_model = st.secrets['OPENAI_MODEL']
@@ -46,5 +46,4 @@ try:
 except Exception as e:
 
     print("Error initializing mem embeddings:")
-
 

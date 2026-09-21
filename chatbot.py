@@ -11,11 +11,11 @@ os.environ["LANGSMITH_TRACING"] = "false"
 @st.cache_resource
 def get_agent(user_id):
     # Create a persistent event loop
-    from agent import Agent 
+    from agents.planner_agent import Planner
     loop = asyncio.new_event_loop()
     # Make it the current loop for this thread
     asyncio.set_event_loop(loop)
-    agent = Agent(user_id=user_id)
+    agent = Planner(user_id=user_id)
     loop.run_until_complete(agent.initialize())
 
     return agent, loop
