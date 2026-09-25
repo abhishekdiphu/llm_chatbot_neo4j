@@ -2,18 +2,27 @@
 from llm import llm , embeddings, cus_llm
 from graph import graph
 from langchain_core.prompts import ChatPromptTemplate
-from langchain.tools import Tool
-from langchain.agents import AgentExecutor, create_react_agent
+from langchain_core.tools import Tool
+from langchain.agents import create_agent
 from langchain_core.prompts import PromptTemplate
 from utils import ExtractedPreference
 from mcp_client.mcp_client import MCPClient
 from memory.message_history import Neo4jChatMessageHistory
 from datetime import datetime
-from langchain.memory import ConversationBufferWindowMemory
 from tools.long_memory import UserPreferencesTool, SavePreferenceTool
 from utils import ExtractedPreferences
 from memory.reasoning_trace import ReasoningTraceCallback
-from prompts import REACT_PROMPT
+from agents.prompts import REACT_PROMPT_CREATE_AGENT
+from langchain_core.messages import HumanMessage, AIMessage
+from pydantic import BaseModel
+
+
+
+
+
+class Answer(BaseModel):
+    summary: str
+    
 
 class Planner:
     def __init__(self, llm=None, cus_llm=cus_llm, graph=graph, embeddings=embeddings, user_id="abhishek"):    
@@ -27,47 +36,7 @@ class Planner:
        
 
         
-        self.agent_prompt_local = PromptTemplate.from_template("""
-        You are a academic expert providing information about scientific papers.
-        Be as helpful as possible and return as much information as possible.
-        Do not answer any questions using your pre-trained knowledge, only use 
-        the information provided in the context.
-
-        Do not answer any questions that do not relate to scientific papers.
-                                                    
-
-        TOOLS:
-        ------
-
-        You have access to the following tools:
-
-        {tools}
-
-        To use a tool, please use the following format:
-
-        ```
-        Thought: Do I need to use a tool? Yes
-        Action: the action to take, should be one of [{tool_names}]
-        Action Input: the input to the action
-        Observation: the result of the action
-         ... (this Thought/Action/Action Input/Observation can repeat N times)
-        ```
-
-        When you have a response to say to the Human, or if you do not need to use a tool, you MUST use the format:
-
-        ```
-        Thought: Do I need to use a tool? No
-        Final Answer: the final answer to the original input question
-        ```
-
-        Begin!
-
-        Previous conversation history:
-        {chat_history}
-
-        Question: {input}
-        Thought:{agent_scratchpad}
-        """)
+        self.agent_prompt_local = REACT_PROMPT_CREATE_AGENT
         #self.agent_prompt_local = PromptTemplate.from_template(REACT_PROMPT)
 
         self.chat_prompt = ChatPromptTemplate.from_messages(
@@ -136,63 +105,13 @@ class Planner:
 
 
         # Create the agent
-        self.agent_prompt =  self.agent_prompt_local#hub.pull("hwchase17/react-chat")
-
-
-        """
-        agent start ---->
-
-        1. Step 1: LLM Decision-Making Process
-
-        a. The LLM suggests the ‘Action’ and ‘Action Input’ during the decision-making process.
-
-        
-        
-        
-        Step 2: Agent Response
-
-        a. The agent then responds by launching the recommended tool (Action).
-
-        b. The agent supplies the input parameters (Action Input) to the function.
-
-
-        
-        
-        Step 3: Observation
-
-        a. The function’s output (tool) is presented as an ‘Observation’ by the agent to the LLM.
-
-        
-        
-        Step 4: LLM Feedback Loop
-
-        a. Subsequently, the LLM provides a ‘Thought’.
-
-        b. The LLM suggests the next series of ‘Action’ & ‘Action Input’ for the agent.
-
-        
-
-
-        Step 5: Repetition
-
-        a. This entire procedure repeats in a cycle until the LLM provides a ‘Final Answer’ response.
-
-        Step 6: Communication to User
-
-        a. The final response is communicated to the user.
-
-
-
-        """
-        self.agent = create_react_agent(cus_llm, self.tools, self.agent_prompt)
-
-        # Usage
-        
-
+        self.agent_prompt =  self.agent_prompt_local
+        self.agent = create_agent(model = cus_llm,  
+                                  tools=self.tools, 
+                                  system_prompt= self.agent_prompt)
         self.message_history = None
         self.memory = None
         self.agent_executor = None
-
         self.callback = ReasoningTraceCallback( mcp_client=self.mcp_client,
                                                 user_id=self.user_id,
                                                 session_id=self.session_id)
@@ -205,13 +124,18 @@ class Planner:
         and returns a response to be rendered in the UI
         """
     
-
+        if self.message_history is None:
+            raise RuntimeError("planner not properly initilaized")
+        history = self.message_history.messages[-3:]
         try:
-            response = self.agent_executor.invoke({"input": user_input},
-                                                   config={"configurable": {"session_id": self.session_id}, 
-                                                           "callbacks": [self.callback],
-                                                           })
-            return response['output']
+            response = self.agent.invoke({"messages": [*history, HumanMessage(content=user_input)]},
+                                          config={"callbacks": [self.callback],
+                                                  "recursion_limit": 6})
+            answer = response["messages"][-1].content
+            self.message_history.add_message(HumanMessage(content=user_input))
+            self.message_history.add_message(AIMessage(content=answer))
+
+            return answer
 
         except Exception as e:
             return str(e)
@@ -228,24 +152,6 @@ class Planner:
                                                             session_id=self.session_id,
                                                             user_id=self.user_id,
                                                         )
-
-            # Create memory
-            self.memory = ConversationBufferWindowMemory(
-                                                        chat_memory=self.message_history,
-                                                        k=3,  # Last 3 messages
-                                                        memory_key="chat_history",
-                                                        return_messages=True,
-                                                    )
-
-            
-            self.agent_executor = AgentExecutor(
-                                                agent=self.agent,
-                                                tools=self.tools,
-                                                verbose=True,
-                                                memory=self.memory,
-                                                handle_parsing_errors=True,
-                                                max_iterations=3
-                                                )
         else:
             print("mcp connection failed")
 

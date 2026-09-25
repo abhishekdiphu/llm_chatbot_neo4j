@@ -42,7 +42,7 @@ from langchain.memory import ConversationBufferWindowMemory
 from tools.long_memory import UserPreferencesTool, SavePreferenceTool
 from utils import ExtractedPreferences
 from memory.reasoning_trace import ReasoningTraceCallback
-from prompts import REACT_PROMPT
+from agents.prompts import REACT_PROMPT
 
 
 
@@ -312,7 +312,7 @@ class Agent():
                         ExtractedPreference(
                             category="format",
                             preference=(
-                                "The user prefers concise explanations."),),
+                                "The user prefers concise explanations.")),
                         ])
 
         saved = []

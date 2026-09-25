@@ -1,12 +1,12 @@
 import streamlit as st
 
-from llm import llm, embeddings
+from llm import vector_llm, embeddings
 from graph import graph
 
 from langchain_neo4j import Neo4jVector
 from langchain_core.prompts import ChatPromptTemplate
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain.chains import create_retrieval_chain
+from langchain_classic.chains.combine_documents import create_stuff_documents_chain
+from langchain_classic.chains import create_retrieval_chain
 
 
 #The vector database part answers:
@@ -100,7 +100,7 @@ class VectorTool():
 
 
         # Create the RAG chain.
-        self.question_answer_chain = create_stuff_documents_chain(llm, self.prompt)
+        self.question_answer_chain = create_stuff_documents_chain(vector_llm, self.prompt)
 
         self.paper_retriever = create_retrieval_chain(
             self.retriever,

@@ -7,7 +7,7 @@ from neo4j_agent_memory.config import EmbeddingConfig
 from neo4j_agent_memory.config.settings import EmbeddingProvider
 
 
-custom_llm = False
+custom_llm = True
 
 openai_api_key = st.secrets['OPENAI_API_KEY']
 openai_model = st.secrets['OPENAI_MODEL']
@@ -17,9 +17,14 @@ llm = ChatOpenAI(openai_api_key=st.secrets["OPENAI_API_KEY"],
 
 
 if custom_llm:
-    from custom_llms.custom_llm import cus_llm
-    cus_llm = cus_llm 
+    from custom_llms.custom_llm_qwen import cus_llm, vector_llm, cypher_llm, memory_llm
+
+    cus_llm    = cus_llm
+    vector_llm = vector_llm
+    cypher_llm = cypher_llm
+    memory_llm = memory_llm
     llm = cus_llm
+
 else:
     cus_llm = llm
 

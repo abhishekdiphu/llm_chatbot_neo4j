@@ -2,7 +2,6 @@ import asyncio
 from typing import Any
 
 from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamable_http_client
 import os
 import json
@@ -137,7 +136,7 @@ class MCPClient:
         Example:
         - neo4j://schema
         """
-        async with stdio_client(self.server_params) as (read, write):
+        async with streamable_http_client(self.mcp_server_url) as (read, write, _):
             async with ClientSession(read, write) as session:
                 await session.initialize()
 

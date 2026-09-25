@@ -1,10 +1,10 @@
 import streamlit as st
 
-from llm import llm
+from llm import cypher_llm
 from graph import graph
 
 from langchain_neo4j import GraphCypherQAChain
-from langchain.prompts.prompt import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 
 """
                    User question
@@ -212,7 +212,7 @@ class CypherTool():
         # Create the Cypher QA chain.
         # This chain is intended for structured graph questions about scientific papers.
         self.cypher_qa = GraphCypherQAChain.from_llm(
-            llm,
+            cypher_llm,
             graph=graph,
             verbose=True,
             allow_dangerous_requests=True,
