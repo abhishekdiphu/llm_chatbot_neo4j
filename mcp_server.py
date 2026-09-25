@@ -1,5 +1,5 @@
 from mcp.server.fastmcp import FastMCP
-from llm import llm, mem_embeddings 
+from llm import memory_llm, mem_embeddings 
 from tools.vector_tool import VectorTool
 from tools.cypher_tool import CypherTool
 
@@ -20,10 +20,11 @@ from neo4j_agent_memory import (
 from neo4j_agent_memory.integrations.langchain import (
     llm_provider_from_langchain,
 )
+from neo4j_agent_memory.config.settings import ExtractorType
 from neo4j_agent_memory.config import Neo4jConfig
 
 from tools.arvix_tool import arvix_search
-
+import asyncio
 
 @dataclass
 class AppContext:
@@ -43,20 +44,17 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
     database = os.getenv("NEO4J_DATABASE", "neo4j")
     # Initialize driver on startup
     driver = AsyncGraphDatabase.driver(uri, auth=(username, password))
-    memory_settings = MemorySettings(
-        neo4j=Neo4jConfig(
-            uri=uri,
-            username=username,
-            password=password,
-            database=database,
-        ),
-        extraction=ExtractionConfig(
-            enable_spacy=False,
-            enable_gliner=False,
-        ),
-        llm=llm_provider_from_langchain(llm),
-        embedding=mem_embeddings #"openai/text-embedding-3-small",
+
+    memory_settings = MemorySettings(neo4j=Neo4jConfig(uri=uri, username=username, password=password, database=database),
+        extraction=ExtractionConfig(enable_spacy=False, enable_gliner=False,),
+        llm=memory_llm,
+        embedding=mem_embeddings,
     )
+
+    non_llm_memory_settings = MemorySettings(neo4j=Neo4jConfig(uri=uri, username=username, password=password, database=database),
+            extraction=ExtractionConfig(extractor_type=ExtractorType.SPACY, enable_llm_fallback=False),
+            llm= None,
+            embedding=mem_embeddings)
 
     memory_client = MemoryClient(memory_settings)
     await memory_client.connect()
@@ -326,7 +324,7 @@ class MCPServer():
         async def arvix_paper_chat(query: str,  max_results: int = 5) -> str:
 
             try:
-                result = await arvix_search(query=query, max_results=max_results)
+                result = await asyncio.to_thread( arvix_search, query, max_results)
             except Exception as e:
                 print(f"Error occurred while searching arXiv: {e}")
                 result = "Error occurred while searching arXiv."
