@@ -167,16 +167,13 @@ class Planner:
         """
         records = self.mcp_client.get_chat_history( session_id=self.session_id)
 
-        if not records:return {"saved_count": 0, "preferences": [],}
+        if not records:
+            return {"saved_count": 0, "preferences": [],}
 
-        conversation = "\n".join(
-            f"{record.get('role', 'unknown')}: "
-            f"{record.get('content', '')}"
-            for record in records
-        )
+        #conversation = "\n".join(f"{record.get('role', 'unknown')}: "f"{record.get('content', '')}" for record in records)
 
 
-                # Temporary replacement for LLM-based extraction.
+        # Temporary replacement for LLM-based extraction.
         extracted = ExtractedPreferences(
             preferences=[
                         ExtractedPreference(

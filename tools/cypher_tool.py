@@ -1,6 +1,6 @@
 import streamlit as st
 
-from llm import cypher_llm
+from llm import cypher_llm, vector_llm
 from graph import graph
 
 from langchain_neo4j import GraphCypherQAChain
@@ -212,9 +212,22 @@ class CypherTool():
         # Create the Cypher QA chain.
         # This chain is intended for structured graph questions about scientific papers.
         self.cypher_qa = GraphCypherQAChain.from_llm(
-            cypher_llm,
+            cypher_llm=cypher_llm,
+            qa_llm=vector_llm,
             graph=graph,
             verbose=True,
             allow_dangerous_requests=True,
             cypher_prompt= self.cypher_prompt,
         )
+
+if __name__ == "__main__":
+    tool = CypherTool()
+    question = "Find papers on math"
+
+    print("Question:", question)
+
+    result = tool.cypher_qa.invoke({
+        "query": question
+    })
+
+    print("Response:", result)

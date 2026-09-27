@@ -9,6 +9,8 @@ from transformers import MetalConfig
 from custom_llms.custom_rag_llm import QwenRagChatModel
 from custom_llms.custom_memory_llm import QwenMemoryProvider
 from custom_llms.custom_react_llm import QwenReActChatModel
+from langchain_core.messages import HumanMessage
+
 
 
 
@@ -16,10 +18,12 @@ class ModelConfig:
     qwen_react_base = "Qwen/Qwen2.5-3B-Instruct"
     qwen_react_adapter="Cheng-1/agenttune-qwen2.5-3b-react-lora"
 
+    text_to_cypher = "neo4j/text-to-cypher-Gemma-3-4B-Instruct-2025.04.0"
 
 
 
-class QwenModel:
+
+class CustomModel:
     def __init__(self, base_model=None, adapter_path= None, max_new_tokens=512):
             self.base_model = base_model
             self.adapter_path = adapter_path
@@ -59,12 +63,12 @@ class QwenModel:
     
     
             if self.adapter_path:
-                print("adapter loaded ")
+                print(f"adapter loaded {self.base_model}")
                 self.model = PeftModel.from_pretrained(
                     base,
                     self.adapter_path)
             else:
-                print("base model used  ")
+                print(f"base model used {self.base_model}")
                 self.model = base
     
             if torch.backends.mps.is_available():
@@ -107,13 +111,140 @@ class QwenModel:
         return decoded_output_post_proc
 
 
+
+
+
+
+class CustomCypherModel:
+    def __init__(self, base_model=None, adapter_path= None, max_new_tokens=512):
+            self.base_model = base_model
+            self.adapter_path = adapter_path
+            self.max_new_tokens = max_new_tokens
+            self.tokenizer = None
+            self.model = None
+
+    def load(self):
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                self.base_model,
+                trust_remote_code=True,
+                truncation=True,
+                max_length=4096,
+            )
+            self.template = self.tokenizer.chat_template
+        
+            base = AutoModelForCausalLM.from_pretrained(
+                self.base_model,
+                #torch_dtype=torch.float32,
+                trust_remote_code=True,
+                device_map="mps",)
+    
+    
+    
+            if self.adapter_path:
+                print(f"adapter loaded {self.base_model}")
+                self.model = PeftModel.from_pretrained(
+                    base,
+                    self.adapter_path)
+            else:
+                print(f"base model used P{self.base_model}")
+                self.model = base
+    
+            if torch.backends.mps.is_available():
+                self.model.to("mps")
+    
+            elif torch.cuda.is_available():
+                self.model.to("cuda")
+            else: 
+                self.model.to("cpu")
+            self.model.eval()
+    
+            print(f"device: {self.model.device}")
+            return self
+
+    def invoke(self, messages:list[dict[str, str]], max_new_tokens: int | None = None)-> str:
+
+        generation_limit = max_new_tokens or self.max_new_tokens
+    
+        inputs = self.tokenizer.apply_chat_template(
+                                                    messages,
+                                                    tokenize=True,
+                                                    add_generation_prompt=True,
+                                                    return_tensors="pt",
+                                                    return_dict=True).to(self.model.device)
+        input_length = inputs["input_ids"].shape[-1]
+
+        with torch.no_grad():
+            outputs = self.model.generate(**inputs,
+                                        max_new_tokens=generation_limit,
+                                        do_sample=False,
+                                        pad_token_id=self.tokenizer.eos_token_id,
+                                        eos_token_id=self.tokenizer.eos_token_id)
+
+        decoded_output = self.tokenizer.decode(outputs[0][input_length:],
+                                               skip_special_tokens=True,
+                                               clean_up_tokenization_spaces=False)
+
+        
+        decoded_output_post_proc = decoded_output.strip()
+        return decoded_output_post_proc
+
+
+
+
+
 model_config = ModelConfig()
-local_qwen   = QwenModel(base_model=model_config.qwen_react_base, 
+local_qwen   = CustomModel(base_model=model_config.qwen_react_base, 
+                         adapter_path=None).load()
+
+local_gemma   = CustomCypherModel(base_model=model_config.text_to_cypher, 
                          adapter_path=None).load()
 
 print("loading completed for local llm", model_config.qwen_react_base)
+print("loading completed for local llm", model_config.text_to_cypher)
 
 cus_llm    = QwenReActChatModel(qwen=local_qwen)
 vector_llm = QwenRagChatModel(qwen=local_qwen)
-cypher_llm = QwenRagChatModel(qwen=local_qwen)
+cypher_llm = QwenRagChatModel(qwen=local_gemma)
 memory_llm = QwenMemoryProvider(qwen=local_qwen)
+
+
+
+if __name__ == "__main__":
+     m = """"
+          You are an expert Neo4j developer translating user questions into Cypher
+          for a scientific paper knowledge graph.
+
+          Your task:
+          Convert the user's question into a valid Cypher query based only on the
+          provided Neo4j schema.
+
+          Important rules:
+          - Use only labels, relationships, and properties that exist in the schema.
+          - Do not invent labels, relationships, or properties.
+          - Do not return entire nodes such as p, a, c, v, or ch.
+          - Do not return embedding properties.
+          - Never return Chunk.embedding.
+          - Return explicit properties only, for example:
+            p.id, p.title, p.abstract, p.update_date, p.doi, p.journal_ref,
+            a.name, c.name, v.version, v.created, ch.text.
+          - Use case-insensitive matching for user-provided names, titles, and keywords.
+          - Add a LIMIT unless the user explicitly asks for all results.
+          - Prefer LIMIT 20 for search/list questions.
+          - Prefer LIMIT 10 for recommendation questions.
+          - For paper recommendations, use shared categories, shared authors, or related metadata.
+          - For semantic similarity search, only generate vector-search Cypher if the schema
+            and database support the vector index/procedure. Otherwise use title/abstract/chunk
+            keyword matching.
+
+          Known scientific-paper graph pattern, if present in the schema:
+          - (:Paper)-[:AUTHORED_BY]->(:Author)
+          - (:Paper)-[:IN_CATEGORY]->(:Category)
+          - (:Paper)-[:HAS_VERSION]->(:Version)
+          - (:Paper)-[:HAS_CHUNK]->(:Chunk)"
+
+          find the paper on the topic  math ?
+        
+        """
+     print(cypher_llm.invoke([HumanMessage(content=m)]))
+     
+     

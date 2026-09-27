@@ -125,6 +125,7 @@ if __name__ == "__main__":
                             result = (chatbot.agent.finalize_discussion())
     
                         saved_count = result.get("saved_count",0,)
+                        print(result)
                         if saved_count > 0:
                             st.sidebar.success(f"Saved {saved_count} "f"dummy preferences.")
     
