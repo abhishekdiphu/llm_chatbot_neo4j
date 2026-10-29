@@ -160,17 +160,9 @@ class MCPServer():
         ) -> list[dict[str, str]]:
             """Return messages for one chat session."""
 
-            memory_client = (
-                ctx.request_context
-                .lifespan_context
-                .memory_client
-            )
-
+            memory_client = (ctx.request_context.lifespan_context.memory_client)
             conversation = (
-                await memory_client.short_term.get_conversation(
-                    session_id=session_id,
-                )
-            )
+                await memory_client.short_term.get_conversation(session_id=session_id))
 
             return [
                 {
@@ -197,17 +189,16 @@ class MCPServer():
                 .lifespan_context
                 .memory_client
             )
-
-            await memory_client.short_term.add_message(
-                session_id=session_id,
-                role=role,
-                content=content,
-                metadata=(
-                    {"user_id": user_id}
-                    if user_id
-                    else None
-                ),
-            )
+            print("__________server___________")
+            try:
+                await memory_client.short_term.add_message(
+                    session_id=session_id,
+                    role=role,
+                    content=content,
+                    metadata=({"user_id": user_id} if user_id else None))
+            except Exception as e :
+                 print(f"%%%%%%%%%% {e} %%%%%%%%%%%%%%")
+                 
 
             return "Message saved"
 
@@ -252,6 +243,7 @@ class MCPServer():
             Use this for authors, categories, paper IDs, DOI, versions, and metadata.
             """
             response = self.cypher_tool.cypher_qa.invoke({"query": question})
+            print("response:", response)
 
             if isinstance(response, dict):
                 return response.get("result") or response.get("answer") or str(response)
@@ -349,7 +341,7 @@ class MCPServer():
                 memory_client = (ctx.request_context.lifespan_context.memory_client)
                 trace = await memory_client.reasoning.start_trace(session_id=session_id,task=task,metadata={"user_id": user_id})
                 return {"trace_id": str(trace.id)}
-                pass
+                
 
         @self.mcp.tool()
         async def add_reasoning_step(
@@ -362,7 +354,7 @@ class MCPServer():
                 memory_client = (ctx.request_context.lifespan_context.memory_client)
                 step = await memory_client.reasoning.add_step(trace_id=trace_id,thought=thought, action=action)
                 return {"step_id": str(step.id)}
-                pass
+                
 
         @self.mcp.tool()
         async def record_reasoning_tool_call(
@@ -380,7 +372,7 @@ class MCPServer():
                                                                 status=status, error=error)
 
                 return "Tool call recorded"
-                pass
+                
 
         @self.mcp.tool()
         async def complete_reasoning_trace(
@@ -391,7 +383,7 @@ class MCPServer():
                                         ) -> str:
                 memory_client = (ctx.request_context.lifespan_context.memory_client)
                 await memory_client.reasoning.complete_trace(trace_id=trace_id, outcome=outcome, success=success)
-                pass
+                return "complete_reasoning_trace done"
         #------------------------tracing------------------------------#
 
            
