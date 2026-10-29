@@ -1,7 +1,11 @@
 __pycache__/
 *.pyc 
-llm_train/
+llm_train/data
+llm_train/outputs
 *.env
 .streamlit/
 *.toml
 .vscode/
+dataset/archive.zip
+dataset/arxiv-metadata-oai-snapshot.json
+dataset/subset.json
