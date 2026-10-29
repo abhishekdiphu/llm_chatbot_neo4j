@@ -39,8 +39,12 @@ class MCPClient:
                     tool_name,
                     arguments=arguments,
                 )
+                text = self._extract_text(result)
 
-                return self._extract_text(result)
+                if result.isError:
+                    raise RuntimeError(f"MCP tool '{tool_name}' failed: {text}")
+
+                return text
 
     def call_tool(self, tool_name: str, arguments: dict[str, Any]) -> str:
         """
@@ -61,6 +65,7 @@ class MCPClient:
                     arguments=arguments,
                 )
             )
+        
         finally:
             if existing_loop is not None and not existing_loop.is_closed():
                 asyncio.set_event_loop(existing_loop)
@@ -220,13 +225,18 @@ class MCPClient:
 
         return []
 
-    def add_chat_message(
-                        self,
-                        session_id: str,
-                        role: str,
-                        content: str,
-                        user_id: str | None = None,
-                        ) -> str:
+    def add_chat_message(self,
+                         session_id: str,
+                         role: str,
+                         content: str,
+                         user_id: str | None = None,
+                         ) -> str:
+
+
+
+
+                        print("__________client___________")
+
                         return self.call_tool(
                             "add_chat_message",
                             {

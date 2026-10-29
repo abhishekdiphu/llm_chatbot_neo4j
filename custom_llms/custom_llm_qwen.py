@@ -10,6 +10,7 @@ from custom_llms.custom_rag_llm import QwenRagChatModel
 from custom_llms.custom_memory_llm import QwenMemoryProvider
 from custom_llms.custom_react_llm import QwenReActChatModel
 from langchain_core.messages import HumanMessage
+import regex as re
 
 
 
@@ -115,6 +116,21 @@ class CustomModel:
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 class CustomCypherModel:
     def __init__(self, base_model=None, adapter_path= None, max_new_tokens=512):
             self.base_model = base_model
@@ -170,37 +186,56 @@ class CustomCypherModel:
                                                     tokenize=True,
                                                     add_generation_prompt=True,
                                                     return_tensors="pt",
-                                                    return_dict=True).to(self.model.device)
+                                                    return_dict=True,
+                                                    truncation=True,
+                                                    max_length=4096,).to(self.model.device,
+                                                    )
         input_length = inputs["input_ids"].shape[-1]
 
+        
         with torch.no_grad():
             outputs = self.model.generate(**inputs,
                                         max_new_tokens=generation_limit,
                                         do_sample=False,
-                                        pad_token_id=self.tokenizer.eos_token_id,
-                                        eos_token_id=self.tokenizer.eos_token_id)
-
+                                        #use_cache=True,
+                                        #cache_implementation="hybrid"
+                                        )
+            
+        
         decoded_output = self.tokenizer.decode(outputs[0][input_length:],
                                                skip_special_tokens=True,
                                                clean_up_tokenization_spaces=False)
+        # Remove common model-output escaping.
+        decoded_output = decoded_output.replace("\\\n", "\n")
+        decoded_output = decoded_output.replace("\\n", "\n")
+        decoded_output = decoded_output.replace("\\_", "_")
+
+        # Remove Markdown code fences.
+        decoded_output = re.sub(r"^```(?:cypher)?\s*|\s*```$","",
+                                decoded_output,
+                                flags=re.IGNORECASE,
+                            ).strip()
+
+        print(decoded_output)
 
         
         decoded_output_post_proc = decoded_output.strip()
         return decoded_output_post_proc
 
-
+    
 
 
 
 model_config = ModelConfig()
-local_qwen   = CustomModel(base_model=model_config.qwen_react_base, 
-                         adapter_path=None).load()
 
-local_gemma   = CustomCypherModel(base_model=model_config.text_to_cypher, 
-                         adapter_path=None).load()
+local_qwen   = CustomModel(base_model=model_config.qwen_react_base, adapter_path=None).load()
+local_gemma   = CustomCypherModel(base_model=model_config.text_to_cypher, adapter_path=None).load()
 
 print("loading completed for local llm", model_config.qwen_react_base)
 print("loading completed for local llm", model_config.text_to_cypher)
+
+
+
 
 cus_llm    = QwenReActChatModel(qwen=local_qwen)
 vector_llm = QwenRagChatModel(qwen=local_qwen)

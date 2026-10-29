@@ -132,6 +132,7 @@ class Planner:
                                           config={"callbacks": [self.callback],
                                                   "recursion_limit": 6})
             answer = response["messages"][-1].content
+            
             self.message_history.add_message(HumanMessage(content=user_input))
             self.message_history.add_message(AIMessage(content=answer))
 
@@ -170,7 +171,7 @@ class Planner:
         if not records:
             return {"saved_count": 0, "preferences": [],}
 
-        #conversation = "\n".join(f"{record.get('role', 'unknown')}: "f"{record.get('content', '')}" for record in records)
+        conversation = "\n".join(f"{record.get('role', 'unknown')}: "f"{record.get('content', '')}" for record in records)
 
 
         # Temporary replacement for LLM-based extraction.

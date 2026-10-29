@@ -38,12 +38,9 @@ class VectorTool():
                                         {
                                             paper_id: p.id,
                                             title: p.title,
-                                            abstract: p.abstract,
                                             doi: p.doi,
                                             journal_ref: p.journal_ref,
                                             update_date: p.update_date,
-                                            chunk_id: node.id,
-                                            chunk_type: node.chunk_type,
                                             authors: authors,
                                             categories: categories,
                                             source: 'https://arxiv.org/abs/' + p.id
@@ -66,7 +63,7 @@ class VectorTool():
         # Crea  te the retriever.
         self.retriever = self.neo4jvector.as_retriever(
             search_kwargs={
-                "k": 5,
+                "k": 1,
             }
         )
 
@@ -123,3 +120,10 @@ class VectorTool():
             return self.get_scientific_paper_answer(input_text)
 
 
+if __name__ == "__main__":
+    v = VectorTool()
+    question = "Find papers on the category 'math' "
+    print("Question:", question)
+    result = v.get_scientific_paper_answer(input_text=question)
+    print("Response:", result)
+      

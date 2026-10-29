@@ -25,9 +25,9 @@ class QwenRagChatModel(BaseChatModel):
         return "local-qwen-chat"
 
     def _generate(self, messages: list[BaseMessage], stop=None, run_manager=None, **kwargs, ) -> ChatResult:
-        conversation = self._convert_messages(messages)
-        output = self.qwen.invoke(conversation)
-        generated_output = ChatResult(generations=[ChatGeneration(message=AIMessage(content=output.strip()))])
+        conversation = self._convert_messages(messages)   
+        output = self.qwen.invoke(conversation,  max_new_tokens=512)
+        generated_output = ChatResult(generations=[ChatGeneration(message=AIMessage(content=output.strip()))])        
         return generated_output
     
 
