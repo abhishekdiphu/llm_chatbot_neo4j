@@ -249,6 +249,8 @@ dataset/arxiv-metadata-oai-snapshot.json
 dataset/subset.json
 ```
 
+datasets were not included , have to download seperately from arvix
+
 ## Docker
 
 - not completely tested and integrated.
