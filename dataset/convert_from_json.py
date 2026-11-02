@@ -3,13 +3,15 @@ from typing import Any, Dict, List
 
 from neo4j import GraphDatabase
 
+real_file = "subset.json"
+example_file = "example.json"
 
 NEO4J_URI = "neo4j://127.0.0.1:7687"
 NEO4J_USER = "neo4j"
 NEO4J_PASSWORD = "password"
 NEO4J_DATABASE = "neo4j"
 
-JSONL_FILE = "subset.json"
+JSONL_FILE = example_file
 
 BATCH_SIZE = 1000
 
