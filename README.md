@@ -241,6 +241,8 @@ The `dataset/` directory contains scripts for converting arXiv metadata and crea
 
 Before running these scripts, review their Neo4j credentials, local model paths, embedding dimensions, and input paths. Some values are currently development-machine specific.
 
+It also contains script to create graph from json file and store in  a neo4j database
+
 Ignored dataset files include:
 
 ```text
@@ -249,7 +251,8 @@ dataset/arxiv-metadata-oai-snapshot.json
 dataset/subset.json
 ```
 
-datasets were not included , have to download seperately from arvix
+datasets were not included , have to download seperately from arvix,
+ an exmaple is provided exmaple.json
 
 ## Docker
 
