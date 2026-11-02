@@ -106,62 +106,6 @@ The application also imports Neo4j Agent Memory directly. If it is not already i
 pip install neo4j-agent-memory==0.5.0 sentence-transformers
 ```
 
-## Working with both Git repositories
-
-The application is split across two repositories:
-
-| Repository | Remote |
-|---|---|
-| Main chatbot | `https://github.com/abhishekdiphu/llm_chatbot_neo4j.git` |
-| MCP server | `https://github.com/abhishekdiphu/mcp_server.git` |
-
-The MCP repository is expected in the main repository as the `mcp_server/` directory.
-
-### Clone both repositories for the first time
-
-```bash
-git clone --branch V02 https://github.com/abhishekdiphu/llm_chatbot_neo4j.git
-cd llm_chatbot_neo4j
-git clone --branch V02 https://github.com/abhishekdiphu/mcp_server.git mcp_server
-```
-
-The resulting layout is:
-
-```text
-llm_chatbot_neo4j/
-├── .git/             # Main chatbot repository
-├── chatbot.py
-├── ...
-└── mcp_server/
-    ├── .git/         # MCP server repository
-    ├── main.py
-    └── mcp_server.py
-```
-
-### Pull updates for both repositories
-
-From the directory containing `llm_chatbot_neo4j`, run:
-
-```bash
-git -C llm_chatbot_neo4j pull --ff-only origin V02
-git -C llm_chatbot_neo4j/mcp_server pull --ff-only origin V02
-```
-
-Alternatively, when already inside `llm_chatbot_neo4j`:
-
-```bash
-git pull --ff-only origin V02
-git -C mcp_server pull --ff-only origin V02
-```
-
-Run `git status` separately for each repository before pulling if you have local changes:
-
-```bash
-git status
-git -C mcp_server status
-```
-
-The outer repository may display `mcp_server/` as an untracked nested repository. Do not stage it as a normal directory. Either keep it excluded from the main repository or formally register it as a Git submodule.
 
 ## Configuration
 
